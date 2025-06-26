@@ -11,15 +11,13 @@
 /
 /       copyright       :   Copyright 2025, - G Leonard, georgelza@gmail.com
 /
-/       GIT Repo        :
+/       GIT Repo        :   https://github.com/georgelza/SNMP-Flink-Source-connector
 /
 /       Blog            :
 /
 *///////////////////////////////////////////////////////////////////////////////////////////////////////
 
 package com.snmp.source;
-
-// Removed: import org.apache.flink.api.common.serialization.SerializableSerializer; // This import is generally not recommended for Flink state serialization
 
 import org.apache.flink.api.connector.source.Boundedness;
 import org.apache.flink.api.connector.source.Source;

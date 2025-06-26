@@ -11,7 +11,7 @@
 /
 /       copyright       :   Copyright 2025, - G Leonard, georgelza@gmail.com
 /
-/       GIT Repo        :
+/       GIT Repo        :   https://github.com/georgelza/SNMP-Flink-Source-connector
 /
 /       Blog            :
 /

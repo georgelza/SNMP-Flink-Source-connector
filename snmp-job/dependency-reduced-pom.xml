@@ -2,13 +2,11 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <parent>
     <artifactId>snmp-flink-connector</artifactId>
-    <groupId>com.snmp.flink</groupId>
+    <groupId>com.snmp</groupId>
     <version>1.0-SNAPSHOT</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
   <artifactId>snmp-job</artifactId>
-  <name>Flink SNMP Job</name>
-  <description>Apache Flink Job utilizing SNMP Connector</description>
   <build>
     <plugins>
       <plugin>
@@ -16,6 +14,14 @@
       </plugin>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+          </execution>
+        </executions>
         <configuration>
           <filters>
             <filter>
@@ -30,7 +36,8 @@
           <artifactSet>
             <excludes>
               <exclude>org.apache.flink:*</exclude>
-              <exclude>org.slf4j:slf4j-api</exclude>
+              <exclude>org.slf4j:*</exclude>
+              <exclude>org.apache.logging.log4j:*</exclude>
               <exclude>junit:*</exclude>
             </excludes>
           </artifactSet>
@@ -44,12 +51,6 @@
     </plugins>
   </build>
   <dependencies>
-    <dependency>
-      <groupId>org.apache.flink</groupId>
-      <artifactId>flink-core</artifactId>
-      <version>1.20.1</version>
-      <scope>provided</scope>
-    </dependency>
     <dependency>
       <groupId>org.apache.flink</groupId>
       <artifactId>flink-streaming-java</artifactId>
@@ -81,9 +82,33 @@
       <scope>provided</scope>
     </dependency>
     <dependency>
+      <groupId>org.apache.flink</groupId>
+      <artifactId>flink-core</artifactId>
+      <version>1.20.1</version>
+      <scope>provided</scope>
+    </dependency>
+    <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
       <version>1.7.36</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
+      <version>2.17.1</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-api</artifactId>
+      <version>2.17.1</version>
+      <scope>compile</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>2.17.1</version>
       <scope>compile</scope>
     </dependency>
     <dependency>

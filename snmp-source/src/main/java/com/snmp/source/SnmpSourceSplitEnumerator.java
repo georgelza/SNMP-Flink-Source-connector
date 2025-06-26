@@ -11,7 +11,7 @@
 /
 /       copyright       :   Copyright 2025, - G Leonard, georgelza@gmail.com
 /                       
-/       GIT Repo        :   
+/       GIT Repo        :   https://github.com/georgelza/SNMP-Flink-Source-connector
 /
 /       Blog            :   
 /
@@ -61,6 +61,10 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
             List<SnmpAgentInfo> agentInfos,
             SplitEnumeratorContext<SnmpSourceSplit> context) {
         this(agentInfos, context, null); // Call the new main constructor
+
+        LOG.debug("{} Called, Call the new main constructor.", 
+            Thread.currentThread().getName()
+        );
     }
 
     // New or modified constructor to handle restored state directly
@@ -68,33 +72,45 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
             List<SnmpAgentInfo> agentInfos,
             SplitEnumeratorContext<SnmpSourceSplit> context,
             Collection<SnmpSourceSplit> restoredState) { // Use Collection here
-        this.agentInfos = agentInfos;
-        this.context = context;
-        this.assignments = new ConcurrentHashMap<>();
-        this.pendingSplits = new ConcurrentHashMap<>();
-        this.assignedSplitIds = new HashSet<>();
+        this.agentInfos         = agentInfos;
+        this.context            = context;
+        this.assignments        = new ConcurrentHashMap<>();
+        this.pendingSplits      = new ConcurrentHashMap<>();
+        this.assignedSplitIds   = new HashSet<>();
 
         if (restoredState != null && !restoredState.isEmpty()) {
-            LOG.info("Initializing enumerator with {} splits from restored state.", restoredState.size());
+            LOG.debug("{} Called, Initializing enumerator with {} splits from restored state.", 
+                Thread.currentThread().getName(), 
+                restoredState.size()
+            );
             // Directly add to pending splits and assigned IDs
             this.pendingSplits.computeIfAbsent(0, k -> new ArrayList<>()).addAll(restoredState);
             restoredState.forEach(split -> assignedSplitIds.add(split.splitId()));
+
         } else {
-            LOG.info("No restored state provided for enumerator initialization.");
+            LOG.debug("{} Called, No restored state provided for enumerator initialization.", 
+                Thread.currentThread().getName()
+            );
         }
     }
 
 
     @Override
     public void start() {
-        LOG.info("SnmpSourceSplitEnumerator starting.");
+        LOG.debug("{} Called,  Starting.", 
+            Thread.currentThread().getName()
+        );
 
         // If no state was restored via the constructor, discover initial splits
         if (pendingSplits.isEmpty()) {
-            LOG.info("No splits restored via constructor. Discovering initial splits.");
+            LOG.debug("{} Called, No splits restored via constructor. Discovering initial splits.", 
+                Thread.currentThread().getName()
+            );
             discoverInitialSplits();
         } else {
-            LOG.info("Splits already initialized via restored state.");
+            LOG.debug("{} Called, Splits already initialized via restored state.", 
+                Thread.currentThread().getName()
+            );
         }
 
         // Start split discovery periodically
@@ -110,7 +126,11 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
     private void discoverInitialSplits() {
         // Implement initial split discovery based on agentInfos
         // This is called when the job starts for the first time.
-        LOG.info("Discovering initial splits for {} agents.", agentInfos.size());
+        LOG.debug("{} Called, Discovering initial splits for {} agents.", 
+            Thread.currentThread().getName(), 
+            agentInfos.size()
+        );
+
         List<SnmpSourceSplit> initialSplits = new ArrayList<>();
         for (SnmpAgentInfo agent : agentInfos) {
             // Create a split for each agent, or more granular splits based on your design
@@ -124,9 +144,15 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
         if (!initialSplits.isEmpty()) {
             pendingSplits.computeIfAbsent(0, k -> new ArrayList<>()).addAll(initialSplits);
-            LOG.info("Discovered {} initial splits.", initialSplits.size());
+            LOG.debug("{} Called, Discovered {} initial splits.", 
+                Thread.currentThread().getName(), 
+                initialSplits.size()
+            );
+
         } else {
-            LOG.warn("No initial splits discovered from provided agent infos.");
+            LOG.warn("{} Called, No initial splits discovered from provided agent infos.", 
+                Thread.currentThread().getName()
+            );
         }
     }
 
@@ -136,7 +162,9 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
         // 1. Discover new splits (if your source can dynamically add agents/data)
         // 2. Assign existing pending splits to available readers.
 
-        LOG.info("Running scheduled split discovery and assignment.");
+        LOG.debug("{} Called, Running scheduled split discovery and assignment.", 
+            Thread.currentThread().getName()
+        );
 
         // --- 1. Discover New Splits (if applicable) ---
         // For SNMP, this might involve re-scanning a config or a service discovery mechanism
@@ -163,21 +191,31 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
             discoveryScheduler.shutdown();
             try { // MODIFIED: Added try-catch block for InterruptedException
                 if (!discoveryScheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                    LOG.warn("Split discovery scheduler did not terminate in time.");
-                    discoveryScheduler.shutdownNow();
+                    LOG.warn("{} Called, Split discovery scheduler did not terminate in time.", 
+                        Thread.currentThread().getName(),
+                        discoveryScheduler.shutdownNow()
+                    );
                 }
             } catch (InterruptedException e) {
-                LOG.error("Interrupted while waiting for split discovery scheduler to terminate.", e);
+                LOG.error("{} Called, Interrupted while waiting for split discovery scheduler to terminate.", 
+                    Thread.currentThread().getName(),
+                    e
+                );
                 discoveryScheduler.shutdownNow();
                 Thread.currentThread().interrupt(); // Preserve interrupt status
             }
         }
-        LOG.info("SnmpSourceSplitEnumerator closed.");
+        LOG.debug("{} Called, SnmpSourceSplitEnumerator closed.", 
+            Thread.currentThread().getName()
+        );
     }
 
     @Override
     public void addReader(int subtaskId) {
-        LOG.info("Reader {} added. Attempting to assign splits.", subtaskId);
+        LOG.debug("{} Called, Reader {} added. Attempting to assign splits.", 
+            Thread.currentThread().getName(),
+            subtaskId
+        );
         // Track the active readers
         assignments.putIfAbsent(subtaskId, new ArrayList<>());
         assignSplits(); // Try to assign splits when a new reader connects
@@ -185,7 +223,11 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
     @Override
     public void handleSplitRequest(int subtaskId, String hostname) {
-        LOG.info("Reader {} at {} requested splits. Attempting to assign splits.", subtaskId, hostname);
+        LOG.debug("{} Called, Reader {} at {} requested splits. Attempting to assign splits.", 
+            Thread.currentThread().getName(),
+            subtaskId, 
+            hostname
+        );
         // The 'hostname' parameter can be used for location-aware split assignment if needed.
         // For now, we'll proceed with general assignment.
         assignSplits(); // Assign splits when a reader explicitly asks for more
@@ -194,12 +236,20 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
     @Override
     public void handleSourceEvent(int subtaskId, SourceEvent event) {
         // Handle custom source events if you define any
-        LOG.debug("Received source event from subtask {}: {}", subtaskId, event);
+        LOG.debug("{} Called, Received source event from subtask {}: {}", 
+            Thread.currentThread().getName(),
+            subtaskId, 
+            event
+        );
     }
 
     @Override
     public void addSplitsBack(List<SnmpSourceSplit> splits, int subtaskId) {
-        LOG.info("Adding {} splits back from subtask {}. Re-adding to pending splits.", splits.size(), subtaskId);
+        LOG.debug("{} Called, Adding {} splits back from subtask {}. Re-adding to pending splits.", 
+            Thread.currentThread().getName(),
+            splits.size(), 
+            subtaskId
+        );
         // When a reader fails or is shut down, Flink returns its assigned splits here.
         // Re-add them to the pending splits queue for re-assignment.
         pendingSplits.computeIfAbsent(0, k -> new ArrayList<>()).addAll(splits);
@@ -208,18 +258,25 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
-        LOG.info("Checkpoint {} completed.", checkpointId);
+        LOG.debug("{} Called, Checkpoint {} completed.", 
+            Thread.currentThread().getName(),
+            checkpointId
+        );
         // You can use this to clean up state related to previous checkpoints if needed.
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) {
-        LOG.warn("Checkpoint {} aborted.", checkpointId);
+        LOG.warn("{} Called, Checkpoint {} aborted.", 
+            Thread.currentThread().getName(),
+            checkpointId
+        );
     }
 
     @Override
     public List<SnmpSourceSplit> snapshotState(long checkpointId) throws Exception {
-        LOG.info("Snapshotting enumerator state for checkpoint {}. Current pending splits: {}. Current assigned splits: {}",
+        LOG.debug("{} Called, Snapshotting enumerator state for checkpoint {}. Current pending splits: {}. Current assigned splits: {}",
+            Thread.currentThread().getName(),
             checkpointId,
             pendingSplits.getOrDefault(0, new ArrayList<>()).size(),
             assignments.values().stream().mapToLong(List::size).sum()
@@ -234,21 +291,29 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
         // Add all splits that are currently assigned to readers
         assignments.values().forEach(stateToSnapshot::addAll);
 
-        LOG.info("Snapshotting {} splits for checkpoint {}.", stateToSnapshot.size(), checkpointId);
+        LOG.debug("{} Called, Snapshotting {} splits for checkpoint {}.", 
+            Thread.currentThread().getName(),
+            stateToSnapshot.size(), 
+            checkpointId
+        );
         return stateToSnapshot;
     }
 
     // Helper method to assign splits to available readers
     private void assignSplits() {
         if (pendingSplits.getOrDefault(0, new ArrayList<>()).isEmpty()) {
-            LOG.debug("No pending splits to assign.");
+            LOG.debug("{} Called, No pending splits to assign.", 
+                Thread.currentThread().getName()
+            );
             return;
         }
 
         // Use registeredReaders() for compatibility with newer Flink versions
         Set<Integer> availableReaders = context.registeredReaders().keySet();
         if (availableReaders.isEmpty()) {
-            LOG.warn("No readers registered to assign splits to.");
+            LOG.warn("{} Called, No readers registered to assign splits to.", 
+                Thread.currentThread().getName()
+            );
             return;
         }
 
@@ -274,7 +339,11 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
         splitsToAssign.removeAll(toRemoveFromPending); // Remove assigned splits from pending
 
         if (!newAssignments.isEmpty()) {
-            LOG.info("Assigning {} splits to readers: {}", newAssignments.values().stream().mapToLong(List::size).sum(), newAssignments.keySet());
+            LOG.debug("{} Called, Assigning {} splits to readers: {}", 
+                Thread.currentThread().getName(),
+                newAssignments.values().stream().mapToLong(List::size).sum(), 
+                newAssignments.keySet()
+            );
             context.assignSplits(new SplitsAssignment<>(newAssignments));
         }
     }

@@ -10,11 +10,11 @@ CREATE TABLE hive_catalog.snmp.snmp_poll_data (
     PROC_TIME AS PROCTIME()                                     -- Flink Process time
 ) WITH (
      'connector'                = 'snmp'
-    ,'target'                   = '172.16.10.2:161,172.16.10.3:161' -- snmp agent:port
+    ,'target'                   = '172.16.10.2:161' -- snmp agent:port
     ,'snmp.version'             = 'SNMPv1'                 
-    ,'snmp.community-string'    = 'passsword'                 
+    ,'snmp.community-string'    = 'abfr24'                 
     ,'snmp.poll_mode'           = 'GET'                 
-    ,'oids'                     = '.1.3.6.1.2.1.1.5.0,.1.3.6.1.2.1.2.1.0'                 
+    ,'oids'                     = 'IF-MIB::ifDescr.2,IF-MIB::ifInOctets.2,IF-MIB::ifOutOctets.2'                 
     ,'interval_seconds'         = '10'                          
     ,'timeout_seconds'          = '5'                          
     ,'retries'                  = '2'

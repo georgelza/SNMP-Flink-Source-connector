@@ -6,17 +6,14 @@
 /       File            :   SnmpTableSourceFactory.java
 /
 /       Description     :   SNMP Source connector
-/                       :   This will be executed via the Create Table as per CreFlinkFlows / snmp_poll_data examples
-/                       :   This will create a table with a connector=snmp defined.
-/                       :   Table variables extracted via the SnmpConfigOptions.java
 /
 /       Created     	:   June 2025
 /
 /       copyright       :   Copyright 2025, - G Leonard, georgelza@gmail.com
-/                       
-/       GIT Repo        :   
 /
-/       Blog            :   
+/       GIT Repo        :   https://github.com/georgelza/SNMP-Flink-Source-connector
+/
+/       Blog            :
 /
 *///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -28,6 +25,9 @@ import org.apache.flink.table.factories.DynamicTableSourceFactory;
 import org.apache.flink.table.factories.FactoryUtil;
 import org.apache.flink.table.types.DataType;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.HashSet;
 import java.util.Set;
 
@@ -37,7 +37,9 @@ import java.util.Set;
  */
 public class SnmpTableSourceFactory implements DynamicTableSourceFactory {
 
-    public static final String IDENTIFIER = "snmp"; // The connector identifier used in 'connector'='snmp'
+    private static final Logger LOG = LoggerFactory.getLogger(SnmpTableSourceFactory.class);
+
+    public static final String IDENTIFIER = "snmp";
 
     @Override
     public String factoryIdentifier() {
@@ -70,27 +72,37 @@ public class SnmpTableSourceFactory implements DynamicTableSourceFactory {
     public DynamicTableSource createDynamicTableSource(Context context) {
         final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 
-        // Validate all options are properly used and not conflicting.
         helper.validate();
 
-        // Get the produced data type
-        final DataType producedDataType = context.getPhysicalRowDataType();
+        final DataType               producedDataType   = context.getPhysicalRowDataType();
+        final java.util.List<String> targetAgents       = SnmpConfigOptions.getTargetAgents(helper.getOptions());
+        final String                 snmpVersion        = helper.getOptions().get(SnmpConfigOptions.SNMP_VERSION);
+        final String                 communityString    = helper.getOptions().get(SnmpConfigOptions.SNMP_COMMUNITY_STRING);
+        final String                 username           = helper.getOptions().getOptional(SnmpConfigOptions.SNMP_USERNAME).orElse(null);
+        final String                 password           = helper.getOptions().getOptional(SnmpConfigOptions.SNMP_PASSWORD).orElse(null);
+        final String                 pollMode           = helper.getOptions().get(SnmpConfigOptions.SNMP_POLL_MODE);
+        final java.util.List<String> oids               = SnmpConfigOptions.getOids(helper.getOptions());
+        final int                    intervalSeconds    = helper.getOptions().get(SnmpConfigOptions.INTERVAL);
+        final int                    timeoutSeconds     = helper.getOptions().get(SnmpConfigOptions.TIMEOUT);
+        final int                    retries            = helper.getOptions().get(SnmpConfigOptions.RETRIES);
 
-        // Extract configuration values
-        final String snmpVersion        = helper.getOptions().get(SnmpConfigOptions.SNMP_VERSION);
-        final String pollMode           = helper.getOptions().get(SnmpConfigOptions.SNMP_POLL_MODE);
-        final String communityString    = helper.getOptions().get(SnmpConfigOptions.SNMP_COMMUNITY_STRING);
-        final String username           = helper.getOptions().getOptional(SnmpConfigOptions.SNMP_USERNAME).orElse(null);
-        final String password           = helper.getOptions().getOptional(SnmpConfigOptions.SNMP_PASSWORD).orElse(null);
-        final int   intervalSeconds     = helper.getOptions().get(SnmpConfigOptions.INTERVAL);
-        final int   timeoutSeconds      = helper.getOptions().get(SnmpConfigOptions.TIMEOUT);
-        final int   retries             = helper.getOptions().get(SnmpConfigOptions.RETRIES);
 
-        // Get target agents and OIDs using the helper methods in SnmpConfigOptions
-        final java.util.List<String> targetAgents   = SnmpConfigOptions.getTargetAgents(helper.getOptions());
-        final java.util.List<String> oids           = SnmpConfigOptions.getOids(helper.getOptions());
+        // Log the input parameters
+        LOG.debug("{} Called, Creating SNMP Table Source with parameters:", 
+            Thread.currentThread().getName());
+        LOG.debug("  Target Agents:                {}", targetAgents);
+        LOG.debug("  SNMP Version:                 {}", snmpVersion);
+        LOG.debug("  Community String:             {}", "******"); // Mask sensitive information
+        LOG.debug("  Username:                     {}", username);
+        LOG.debug("  Password:                     {}", "******"); // Mask sensitive information
+        LOG.debug("  Poll Mode:                    {}", pollMode);
+        LOG.debug("  OIDs:                         {}", oids);
+        LOG.debug("  Interval:                     {} Seconds", intervalSeconds);
+        LOG.debug("  Timeout:                      {} Seconds", timeoutSeconds);
+        LOG.debug("  Retries:                      {}", retries);
 
         return new SnmpTableSource(
+                producedDataType,
                 targetAgents,
                 snmpVersion,
                 communityString,
@@ -100,8 +112,6 @@ public class SnmpTableSourceFactory implements DynamicTableSourceFactory {
                 oids,
                 intervalSeconds,
                 timeoutSeconds,
-                retries,
-                producedDataType
-        );
+                retries);
     }
 }

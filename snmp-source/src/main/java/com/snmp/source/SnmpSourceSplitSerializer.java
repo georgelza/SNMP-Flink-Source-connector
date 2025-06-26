@@ -19,40 +19,49 @@
 
 package com.snmp.source;
 
-import org.apache.flink.core.io.SimpleVersionedSerializer; //
+import org.apache.flink.core.io.SimpleVersionedSerializer;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.ObjectInputStream; //
+import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.IOException;
 
-public class SnmpSourceSplitSerializer implements SimpleVersionedSerializer<SnmpSourceSplit> { //
+public class SnmpSourceSplitSerializer implements SimpleVersionedSerializer<SnmpSourceSplit> {
 
     @Override
-    public int getVersion() { //
+    public int getVersion() {
         return 1;
     }
 
     @Override
-    public byte[] serialize(SnmpSourceSplit split) throws IOException { //
+    public byte[] serialize(SnmpSourceSplit split) throws IOException {
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ObjectOutputStream oos = new ObjectOutputStream(baos)) {
-            oos.writeObject(split);
+            // Explicitly write splitId (String) and agentInfo (SnmpAgentInfo)
+            oos.writeUTF(split.splitId());
+            oos.writeObject(split.getAgentInfo()); // This will use SnmpAgentInfo's custom serialization
             return baos.toByteArray();
+            
         }
     }
 
     @Override
-    public SnmpSourceSplit deserialize(int version, byte[] serialized) throws IOException { //
+    public SnmpSourceSplit deserialize(int version, byte[] serialized) throws IOException {
         if (version != getVersion()) {
             throw new IOException("Cannot deserialize split with version " + version + ". Current version is " + getVersion() + ".");
+
         }
         try (ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
              ObjectInputStream ois = new ObjectInputStream(bais)) {
-            return (SnmpSourceSplit) ois.readObject(); //
-        } catch (ClassNotFoundException e) { // Catch the ClassNotFoundException
+            // Explicitly read splitId and agentInfo
+            String splitId = ois.readUTF();
+            SnmpAgentInfo agentInfo = (SnmpAgentInfo) ois.readObject(); // This will use SnmpAgentInfo's custom deserialization
+            return new SnmpSourceSplit(splitId, agentInfo);
+
+        } catch (ClassNotFoundException e) {
             // Wrap in a RuntimeException as SimpleVersionedSerializer.deserialize doesn't declare ClassNotFoundException
             throw new RuntimeException("Failed to deserialize SnmpSourceSplit due to ClassNotFoundException.", e);
+
         }
     }
 }

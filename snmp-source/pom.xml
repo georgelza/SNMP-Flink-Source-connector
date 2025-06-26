@@ -5,130 +5,101 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.snmp.flink</groupId>
+        <groupId>com.snmp</groupId>
         <artifactId>snmp-flink-connector</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>snmp-source</artifactId>
-    <name>Flink SNMP Source</name>
-    <description>Apache Flink Source</description>
     <packaging>jar</packaging>
 
-
     <dependencies>
-        <!-- Flink Dependencies -->
+        <!-- Flink dependencies (managed by parent, scope provided) -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-common</artifactId>
-            <version>${flink.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-api-java-bridge</artifactId>
-            <version>${flink.version}</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-core</artifactId>
-            <version>${flink.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-java</artifactId>
-            <version>${flink.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
-            <artifactId>flink-clients</artifactId>
-            <version>${flink.version}</version>
+            <artifactId>flink-connector-base</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-core</artifactId>
             <scope>provided</scope>
         </dependency>
 
-        <!-- Logging Dependencies -->
+        <!-- SNMP4J for SNMP communication (managed by parent, scope compile for shading) -->
+        <dependency>
+            <groupId>org.snmp4j</groupId>
+            <artifactId>snmp4j</artifactId>
+            <scope>compile</scope>
+        </dependency>
+
+        <!-- Logging dependencies -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>${slf4j.version}</version>
-            <scope>compile</scope>
+            <scope>compile</scope> <!-- slf4j-api should be compile for your connector to use logging -->
         </dependency>
+
+        <!-- Logging dependencies (slf4j-api is provided by Flink runtime, others handled by parent) -->        
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
-            <scope>compile</scope>
+            <scope>runtime</scope> <!-- Provided by job module or Flink runtime in practice -->
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+            <scope>compile</scope> <!-- Provided by job module or Flink runtime in practice -->
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-             <version>${log4j.version}</version>
-            <scope>compile</scope>
+            <scope>runtime</scope> <!-- Provided by job module or Flink runtime in practice -->
         </dependency>
 
-        <!-- SNMP4J -->
-        <dependency>
-            <groupId>org.snmp4j</groupId>
-            <artifactId>snmp4j</artifactId>
-            <version>${snmp4j.version}</version>
-            <scope>compile</scope>
-        </dependency>
-
-        <!-- Test dependencies -->
-        <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-test-utils</artifactId>
-            <version>${flink.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <version>${junit.version}</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-            <version>${junit.version}</version>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Configure maven-compiler-plugin for Java 17 using the 'release' parameter -->
+            <!-- Compiler plugin managed by parent -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>${maven-compiler.version}</version>
-                <configuration>
-                    <!-- Use 'release' for JDK 9+ to correctly handle module paths -->
-                    <release>${maven.compiler.source}</release>
-                    <fork>true</fork>
-                    <showWarnings>true</showWarnings>
-                    <compilerArgs>
-                        <arg>-Xlint:all</arg>
-                        <arg>-Xlint:-processing</arg>
-                    </compilerArgs>
-                </configuration>
             </plugin>
             <!-- Shade plugin to create an uber JAR for the connector -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>${maven-shade.version}</version>
                 <configuration>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                     <artifactSet>
-                        <includes>
-                            <include>${project.groupId}:${project.artifactId}</include>
-                            <include>org.snmp4j:snmp4j</include>
-                        </includes>
+                        <excludes>
+                            <!-- Exclude Flink API dependencies that are typically provided by the Flink cluster. -->
+                            <exclude>org.apache.flink:*</exclude>
+                            <!-- Exclude slf4j-api as it's typically provided by Flink. The Log4j2 implementations
+                                 are kept for shading so job has its own logging. -->
+                            <exclude>org.slf4j:*</exclude>
+                            <exclude>org.apache.logging.log4j:*</exclude>
+                            <exclude>junit:*</exclude>
+                        </excludes>
                     </artifactSet>
+    
                     <filters>
                         <filter>
                             <artifact>*:*</artifact>
@@ -140,6 +111,14 @@
                         </filter>
                     </filters>
                 </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

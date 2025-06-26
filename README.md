@@ -1,14 +1,20 @@
 # MVP: SNMP Flink Source connector (scraper)
 
+NOTE: This is still early days and allot is changing between all git sync's
+
+Dont even try and use it yet.
+
+
 ## Overview
 
 Idea is to build a SNMP source connector that can scrape agents based on IP:port:Method and OIDs
 
 Executed as either a Get or Walk based on OIDs or Root OID to Walk from.
 
-The MIB files will be loaded into a MySql. PostgreSQL or REDIS in memory DB for joining to.
+The MIB files will be loaded into either a MySql. PostgreSQL or REDIS in memory DB for joining/enriching the data.
 
-Nee to come up with solution how to handle inbound SNMP Traps.
+
+ToDo: Need to come up with solution how to handle inbound SNMP Traps.
 
 
 ### EXecuting Polling Job
@@ -20,6 +26,8 @@ Select * from hive_catalog.snmp.snmp_poll_data;
 ```
 
 OR
+NOTE SURE about the next as just pulling data means nothing, and well to use it we need to select from it, which instantiates the job anyhow.
+The table parameters define the source agent to fetch data from. **MOST LIKELY TO REMOVE THE BELOW.**
 
 ```SHELL
 /opt/flink/bin/flink run \

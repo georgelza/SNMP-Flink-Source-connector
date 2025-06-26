@@ -5,70 +5,61 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.snmp.flink</groupId>
+        <groupId>com.snmp</groupId>
         <artifactId>snmp-flink-connector</artifactId>
         <version>1.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>snmp-job</artifactId>
-    <name>Flink SNMP Job</name>
-    <description>Apache Flink Job utilizing SNMP Connector</description>
     <packaging>jar</packaging>
 
-
     <dependencies>
-        <!-- Flink Dependencies -->
+        <!-- Dependency on our SNMP source connector module -->
         <dependency>
-            <groupId>org.apache.flink</groupId>
-            <artifactId>flink-core</artifactId> 
-            <version>${flink.version}</version> 
-            <scope>provided</scope>
+            <groupId>com.snmp</groupId>
+            <artifactId>snmp-source</artifactId>
+            <version>${project.version}</version>
         </dependency>
+
+        <!-- Flink dependencies for job submission (managed by parent, scope provided) -->
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-streaming-java</artifactId>
-            <version>${flink.version}</version> 
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-clients</artifactId>
-            <version>${flink.version}</version> 
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-api-java-bridge</artifactId>
-            <version>${flink.version}</version> 
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-api-java</artifactId>
-            <version>${flink.version}</version> 
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.flink</groupId>
             <artifactId>flink-table-planner-loader</artifactId>
-            <version>${flink.version}</version> 
-            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-core</artifactId>
         </dependency>
 
-        <!-- SNMP4J -->
+        <!-- SNMP4J for SNMP communication (managed by parent, scope compile for shading) -->
         <dependency>
             <groupId>org.snmp4j</groupId>
             <artifactId>snmp4j</artifactId>
-            <version>${snmp4j.version}</version>
             <scope>compile</scope>
         </dependency>
 
-        <!-- Logging Dependencies -->
+
+        <!-- Logging dependencies (managed by parent, compile scope for shading into job JAR) -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <version>${slf4j.version}</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -79,38 +70,35 @@
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
-             <version>${log4j.version}</version>
-           <scope>compile</scope>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-             <version>${log4j.version}</version>
             <scope>compile</scope>
         </dependency>
 
-        <!-- Test dependencies -->
+        <!-- Test dependencies (managed by parent) -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-              <version>${junit.version}</version>
-           <scope>test</scope>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Compiler plugin managed by parent -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
- 
+            <!-- Shade plugin to create an uber JAR for the Flink job -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -127,8 +115,12 @@
                     </filters>
                     <artifactSet>
                         <excludes>
+                            <!-- Exclude Flink API dependencies that are typically provided by the Flink cluster. -->
                             <exclude>org.apache.flink:*</exclude>
-                            <exclude>org.slf4j:slf4j-api</exclude>
+                            <!-- Exclude slf4j-api as it's typically provided by Flink. The Log4j2 implementations
+                                 are kept for shading so job has its own logging. -->
+                            <exclude>org.slf4j:*</exclude>
+                            <exclude>org.apache.logging.log4j:*</exclude>
                             <exclude>junit:*</exclude>
                         </excludes>
                     </artifactSet>
@@ -138,6 +130,14 @@
                         </transformer>
                     </transformers>
                 </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
