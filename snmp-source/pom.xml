@@ -41,38 +41,64 @@
             <artifactId>flink-core</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-api-java</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-table-planner-loader</artifactId>
+            <scope>provided</scope>
+        </dependency>
 
-        <!-- SNMP4J for SNMP communication (managed by parent, scope compile for shading) -->
+
+        <!-- SNMP4J library for SNMP communication -->
         <dependency>
             <groupId>org.snmp4j</groupId>
             <artifactId>snmp4j</artifactId>
-            <scope>compile</scope>
+            <scope>compile</scope> <!-- Compile scope so it's shaded into your fat JAR -->
         </dependency>
 
-        <!-- Logging dependencies -->
+        <!-- Logging dependencies (SLF4J API and Log4j2 binding) -->
+        <!-- These are needed because SnmpSourceReader directly uses Log4j2 classes -->
         <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
-            <scope>compile</scope> <!-- slf4j-api should be compile for your connector to use logging -->
+            <scope>provided</scope>
         </dependency>
-
-        <!-- Logging dependencies (slf4j-api is provided by Flink runtime, others handled by parent) -->        
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-slf4j-impl</artifactId>
-            <scope>runtime</scope> <!-- Provided by job module or Flink runtime in practice -->
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-api</artifactId>
-            <scope>compile</scope> <!-- Provided by job module or Flink runtime in practice -->
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.logging.log4j</groupId>
             <artifactId>log4j-core</artifactId>
-            <scope>runtime</scope> <!-- Provided by job module or Flink runtime in practice -->
+            <scope>provided</scope>
         </dependency>
-
+    
+        <!-- Test dependencies (managed by parent) -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -82,41 +108,52 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
-            <!-- Shade plugin to create an uber JAR for the connector -->
+            <!-- Shade plugin to create an uber JAR for the connector and job -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <configuration>
-                    <createDependencyReducedPom>false</createDependencyReducedPom>
-                    <artifactSet>
-                        <excludes>
-                            <!-- Exclude Flink API dependencies that are typically provided by the Flink cluster. -->
-                            <exclude>org.apache.flink:*</exclude>
-                            <!-- Exclude slf4j-api as it's typically provided by Flink. The Log4j2 implementations
-                                 are kept for shading so job has its own logging. -->
-                            <exclude>org.slf4j:*</exclude>
-                            <exclude>org.apache.logging.log4j:*</exclude>
-                            <exclude>junit:*</exclude>
-                        </excludes>
-                    </artifactSet>
-    
-                    <filters>
-                        <filter>
-                            <artifact>*:*</artifact>
-                            <excludes>
-                                <exclude>META-INF/*.SF</exclude>
-                                <exclude>META-INF/*.DSA</exclude>
-                                <exclude>META-INF/*.RSA</exclude>
-                            </excludes>
-                        </filter>
-                    </filters>
-                </configuration>
                 <executions>
                     <execution>
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
                         </goals>
+                        <configuration>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>shaded</shadedClassifierName>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                            <artifactSet>
+                                <excludes>
+                                    <!-- Exclude Flink API dependencies that are typically provided by the Flink cluster. -->
+                                    <exclude>org.apache.flink:*</exclude>
+                                    <!-- Exclude slf4j-api and Log4j2 implementation binding as they are provided by Flink.
+                                         Keep log4j-api and log4j-core if you are using them directly. -->
+                                    <exclude>org.slf4j:slf4j-api</exclude>
+                                    <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
+                                    <!-- Keep log4j-api and log4j-core if you are using them directly, as per SnmpSourceReader -->
+                                    <!-- <exclude>org.apache.logging.log4j:log4j-api</exclude> -->
+                                    <!-- <exclude>org.apache.logging.log4j:log4j-core</exclude> -->
+                                    <exclude>junit:*</exclude>
+                                </excludes>
+                            </artifactSet>
+                            <transformers>
+                                <!-- This is important for Flink's service discovery mechanisms (e.g., for DynamicTableSourceFactory) -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                                <!-- Main class for the Flink Job if running as a standalone job -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.snmp.job.SnmpPollingJob</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>

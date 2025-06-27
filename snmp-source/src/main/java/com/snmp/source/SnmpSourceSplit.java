@@ -50,7 +50,7 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
      * @param agentInfo The SNMP agent information associated with this split.
      */
     public SnmpSourceSplit(String splitId, SnmpAgentInfo agentInfo) {
-        this.splitId   = Objects.requireNonNull(splitId, "Split ID cannot be null");
+        this.splitId   = Objects.requireNonNull(splitId,   "Split ID cannot be null");
         this.agentInfo = Objects.requireNonNull(agentInfo, "AgentInfo cannot be null");
     }
 
@@ -80,6 +80,7 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SnmpSourceSplit that = (SnmpSourceSplit) o;
+
         return splitId.equals(that.splitId) && agentInfo.equals(that.agentInfo);
     }
 
@@ -90,9 +91,10 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
 
     @Override
     public String toString() {
-        return "SnmpSourceSplit{"   +
-                "splitId='"         + splitId + '\'' +
-                ", agentInfo="      + agentInfo +
-                '}';
+        
+        return "SnmpSourceSplit{"   + '\'' +
+                "   splitId=     '" + splitId + '\'' +
+                "  ,agentInfo=    " + agentInfo + '\'' +
+                "}";
     }
 }

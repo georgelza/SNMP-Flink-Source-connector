@@ -102,6 +102,7 @@ public class SnmpConfigOptions {
     public static List<String> getTargetAgents(ReadableConfig config) {
         String targets = config.getOptional(TARGET_AGENTS)
                 .orElseThrow(() -> new IllegalArgumentException("SNMP 'target' property must be specified."));
+
         return Arrays.stream(targets.split(","))
                 .map(String::trim)
                 .collect(Collectors.toList());
@@ -116,6 +117,7 @@ public class SnmpConfigOptions {
     public static List<String> getOids(ReadableConfig config) {
         String oids = config.getOptional(OIDS)
                 .orElseThrow(() -> new IllegalArgumentException("SNMP 'oids' property must be specified."));
+                
         return Arrays.stream(oids.split(","))
                 .map(String::trim)
                 .collect(Collectors.toList());

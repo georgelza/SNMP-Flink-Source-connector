@@ -33,7 +33,7 @@ The table parameters define the source agent to fetch data from. **MOST LIKELY T
 /opt/flink/bin/flink run \
   --detached \
   -c com.snmp.job.SnmpPollingJob \
-  /opt/flink/lib/flink/snmp-job-1.0-SNAPSHOT.jar \
+  /opt/flink/lib/flink/snmp-source-1.0-SNAPSHOT.jar \
   hive_catalog \
   snmp \
   snmp_poll_data

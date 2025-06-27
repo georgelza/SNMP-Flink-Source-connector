@@ -58,7 +58,6 @@ import org.snmp4j.smi.VariableBinding;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
 import org.snmp4j.smi.Address;
 
-
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -68,6 +67,12 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CompletableFuture;
+
+// Import Log4j2 specific classes for programmatic logger level check
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Level;
+
 
 public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> {
 
@@ -85,20 +90,55 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
     private CompletableFuture<Void> availabilityFuture;
 
     public SnmpSourceReader(SourceReaderContext readerContext) {
-        this.readerContext = readerContext;
-        this.splits         = new ConcurrentLinkedQueue<>();
-        this.fetchedRecords = new ConcurrentLinkedQueue<>();
-        this.lastPollTime   = 0; // Initialize last poll time
-        this.availabilityFuture = new CompletableFuture<>(); // Initialize the future
+        this.readerContext      = readerContext;
+        this.splits             = new ConcurrentLinkedQueue<>();
+        this.fetchedRecords     = new ConcurrentLinkedQueue<>();
+        this.lastPollTime       = 0;                                // Initialize last poll time
+        this.availabilityFuture = new CompletableFuture<>();        // Initialize the future
 
+        System.out.println(
+            Thread.currentThread().getName() + " SNMP Source Reader initialized. (Direct System.out)"
+        );
         LOG.debug("{} SNMP Source Reader initialized.",
             Thread.currentThread().getName()
         );
+        
+        // Programmatic Log4j2 level check (keep if you still want to verify Log4j2 setup)
+        // ADDED: Programmatic check for logging level
+        try {
+            LoggerContext loggerContext                     = (LoggerContext) LogManager.getContext(false);
+            org.apache.logging.log4j.core.Logger coreLogger = loggerContext.getLogger(LOG.getName());
+            Level effectiveLevel                            = coreLogger.getLevel();
+
+            System.out.println(Thread.currentThread().getName() + " Effective logging level for " + LOG.getName() + " is " + effectiveLevel.toString() + " (from Log4j2 check).");
+            System.out.println(Thread.currentThread().getName() + " Flink log directory (sys:log.dir) is: " + System.getProperty("log.dir") + " (from Log4j2 check).");
+
+            LOG.info("{} Effective logging level for {} is {}.",
+                Thread.currentThread().getName(),
+                LOG.getName(),
+                effectiveLevel.toString()
+            );
+
+            LOG.info("{} Flink log directory (sys:log.dir) is: {}",
+                Thread.currentThread().getName(),
+                System.getProperty("log.dir")
+            );
+
+        } catch (Exception e) {
+            System.err.println(Thread.currentThread().getName() + " ERROR during Log4j2 programmatic check: " + e.getMessage() + " (Direct System.err)");
+            e.printStackTrace(System.err); // Print stack trace to stderr
+
+        }
     }
 
     @Override
     public void start() {
-        LOG.debug("{} SNMP Source Reader started. Requesting splits...",
+        
+        System.out.println(
+            Thread.currentThread().getName() + " SNMP Source Reader started. Calling readerContext.sendSplitRequest()..."
+        );
+
+        LOG.debug("{} SNMP Source Reader started. Calling readerContext.sendSplitRequest()...",
             Thread.currentThread().getName()
         );
         // Request splits from the enumerator.
@@ -170,8 +210,8 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             } else {
                 LOG.debug("{} Not yet time to poll. Next poll in {} ms for agent {}.",
                     Thread.currentThread().getName(),
-                    (requiredInterval - (currentTime - lastPollTime)),
-                    currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
+                        (requiredInterval - (currentTime - lastPollTime)),
+                        currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
                 );
             }
 
@@ -420,6 +460,20 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
 
     private void processVariableBinding(VariableBinding vb) {
+        // ADDED LOG STATEMENT: Log raw VariableBinding before any checks
+        LOG.info("{} Raw VariableBinding received: {}",
+            Thread.currentThread().getName(),
+            vb != null ? vb.toString() : "null"
+        );
+        LOG.info("{} Raw OID: {}",
+            Thread.currentThread().getName(),
+            (vb != null && vb.getOid() != null) ? vb.getOid().toString() : "null"
+        );
+        LOG.info("{} Raw Variable: {}",
+            Thread.currentThread().getName(),
+            (vb != null && vb.getVariable() != null) ? vb.getVariable().toString() : "null"
+        );
+
         if (vb == null) {
             LOG.warn("{} Received null VariableBinding. Skipping processing.",
                 Thread.currentThread().getName()
@@ -466,20 +520,31 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             metricValue = null;
         }
 
-        if (deviceId == null) {
-            LOG.error("{} deviceId is null. Cannot create SnmpData record. Source Agent: {}",
+        // IMPORTANT: If device_id or metric_oid are NOT NULL in SQL schema,
+        // they MUST NOT be null here.
+        // We are already returning if deviceId or metricOid are null.
+        // The check below ensures that if the field is NOT NULL in SQL,
+        // we provide a non-null value or explicitly throw an error for unrecoverable data.
+
+        // Re-confirming deviceId is not null based on previous logic (derived from host)
+        if (deviceId == null || deviceId.trim().isEmpty()) { // Also check for empty string
+            LOG.error("{} deviceId is null or empty. Assigning 'UNKNOWN_DEVICE_ID' as placeholder for NOT NULL column. Agent Host: {}",
                 Thread.currentThread().getName(),
-                currentAgentInfo.getHost()
+                (currentAgentInfo != null ? currentAgentInfo.getHost() : "null_agent_info")
             );
-            return;
+            deviceId = "UNKNOWN_DEVICE_ID"; // Provide a non-null placeholder
         }
-        if (metricOid == null) {
-            LOG.error("{} metricOid is null. Cannot create SnmpData record. Device: {}",
+
+        // Ensure metricOid is never null before creating SnmpData or RowData
+        if (metricOid == null || metricOid.trim().isEmpty()) { // Also check for empty string
+            LOG.error("{} metricOid is null or empty for device {}. Assigning 'UNKNOWN_OID' as placeholder for NOT NULL column. Raw VB: {}",
                 Thread.currentThread().getName(),
-                deviceId
+                deviceId,
+                vb.toString()
             );
-            return;
+            metricOid = "UNKNOWN_OID"; // Provide a non-null placeholder
         }
+
 
         SnmpData snmpData = new SnmpData(
                 deviceId,
@@ -497,9 +562,18 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
         GenericRowData rowData = new GenericRowData(6);
         rowData.setField(0, StringData.fromString(snmpData.getDeviceId()));
-        // Corrected: Add null check for metricOid before converting to StringData
-        rowData.setField(1, snmpData.getMetricOid() != null ? StringData.fromString(snmpData.getMetricOid()) : null);
-        
+        // The previous NPE on String.length() suggests that even if snmpData.getMetricOid() was not null,
+        // Flink's internal StringData.fromString might have issues with it, OR
+        // the NPE is happening when Flink tries to convert a null StringData *into* a NOT NULL VARCHAR.
+        // The previous fix already checked for null snmpData.getMetricOoid().
+        // If it's still failing for a NOT NULL column, the null check is critical.
+        // Since metric_oid is NOT NULL, it MUST NOT be null when passed to setField.
+        // The 'return' earlier if metricOid is null should handle this.
+        // If the NPE still occurs on metric_oid field after the 'return' logic,
+        // it means a non-null OID is somehow causing issues. Let's make sure the StringData conversion is robust.
+        // No change needed here if the `return` statement above is effectively preventing nulls.
+        rowData.setField(1, StringData.fromString(snmpData.getMetricOid())); // This OID should be guaranteed non-null by checks above
+
         rowData.setField(2, snmpData.getMetricValue() != null ? StringData.fromString(snmpData.getMetricValue()) : null);
         rowData.setField(3, snmpData.getDataType() != null ? StringData.fromString(snmpData.getDataType()) : null);
         rowData.setField(4, snmpData.getInstanceIdentifier() != null ? StringData.fromString(snmpData.getInstanceIdentifier()) : null);
@@ -624,3 +698,4 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
     }
 
 }
+

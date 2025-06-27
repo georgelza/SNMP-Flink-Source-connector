@@ -120,6 +120,7 @@ public class SnmpData implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SnmpData snmpData = (SnmpData) o;
+
         return Objects.equals(deviceId,             snmpData.deviceId) &&
                 Objects.equals(metricOid,           snmpData.metricOid) &&
                 Objects.equals(metricValue,         snmpData.metricValue) &&
@@ -130,6 +131,7 @@ public class SnmpData implements Serializable {
 
     @Override
     public int hashCode() {
+
         return Objects.hash(deviceId, 
             metricOid, 
             metricValue, 
@@ -140,13 +142,14 @@ public class SnmpData implements Serializable {
 
     @Override
     public String toString() {
+
         return "SnmpData{"  +
-                "deviceId='"             + deviceId + '\'' +
-                ", metricOid='"          + metricOid + '\'' +
-                ", metricValue='"        + metricValue + '\'' +
-                ", dataType='"           + dataType + '\'' +
-                ", instanceIdentifier='" + instanceIdentifier + '\'' +
-                ", ts="                  + ts +
-                '}';
+               "   deviceId=           '" + deviceId + '\'' +
+               ",  metricOid=          '" + metricOid + '\'' +
+               ",  metricValue=        '" + metricValue + '\'' +
+               ",  dataType=           '" + dataType + '\'' +
+               ",  instanceIdentifier= '" + instanceIdentifier + '\'' +
+               ",  ts=                  " + ts +
+               "}";
     }
 }

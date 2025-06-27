@@ -43,18 +43,27 @@ public class SnmpTableSourceFactory implements DynamicTableSourceFactory {
 
     @Override
     public String factoryIdentifier() {
+        LOG.debug("{}: factoryIdentifier called, identifier={}.", 
+            Thread.currentThread().getName(),
+            IDENTIFIER
+        );
+        // Return the identifier for this factory
+        // This identifier is used to register the factory in the Flink environment
         return IDENTIFIER;
     }
 
+    // Must Have's
     @Override
     public Set<ConfigOption<?>> requiredOptions() {
         final Set<ConfigOption<?>> options = new HashSet<>();
         options.add(SnmpConfigOptions.TARGET_AGENTS);
         options.add(SnmpConfigOptions.SNMP_POLL_MODE);
         options.add(SnmpConfigOptions.OIDS);
+
         return options;
     }
 
+    //Optionals
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
         final Set<ConfigOption<?>> options = new HashSet<>();
@@ -65,6 +74,7 @@ public class SnmpTableSourceFactory implements DynamicTableSourceFactory {
         options.add(SnmpConfigOptions.INTERVAL);
         options.add(SnmpConfigOptions.TIMEOUT);
         options.add(SnmpConfigOptions.RETRIES);
+        
         return options;
     }
 
@@ -74,7 +84,6 @@ public class SnmpTableSourceFactory implements DynamicTableSourceFactory {
 
         helper.validate();
 
-        final DataType               producedDataType   = context.getPhysicalRowDataType();
         final java.util.List<String> targetAgents       = SnmpConfigOptions.getTargetAgents(helper.getOptions());
         final String                 snmpVersion        = helper.getOptions().get(SnmpConfigOptions.SNMP_VERSION);
         final String                 communityString    = helper.getOptions().get(SnmpConfigOptions.SNMP_COMMUNITY_STRING);
@@ -85,24 +94,23 @@ public class SnmpTableSourceFactory implements DynamicTableSourceFactory {
         final int                    intervalSeconds    = helper.getOptions().get(SnmpConfigOptions.INTERVAL);
         final int                    timeoutSeconds     = helper.getOptions().get(SnmpConfigOptions.TIMEOUT);
         final int                    retries            = helper.getOptions().get(SnmpConfigOptions.RETRIES);
-
+        final DataType               producedDataType   = context.getPhysicalRowDataType();
 
         // Log the input parameters
         LOG.debug("{} Called, Creating SNMP Table Source with parameters:", 
             Thread.currentThread().getName());
-        LOG.debug("  Target Agents:                {}", targetAgents);
-        LOG.debug("  SNMP Version:                 {}", snmpVersion);
-        LOG.debug("  Community String:             {}", "******"); // Mask sensitive information
-        LOG.debug("  Username:                     {}", username);
-        LOG.debug("  Password:                     {}", "******"); // Mask sensitive information
-        LOG.debug("  Poll Mode:                    {}", pollMode);
-        LOG.debug("  OIDs:                         {}", oids);
-        LOG.debug("  Interval:                     {} Seconds", intervalSeconds);
-        LOG.debug("  Timeout:                      {} Seconds", timeoutSeconds);
-        LOG.debug("  Retries:                      {}", retries);
+        LOG.debug("    Target Agents:                {}", targetAgents);
+        LOG.debug("    SNMP Version:                 {}", snmpVersion);
+        LOG.debug("    Community String:             {}", "******"); // Mask sensitive information
+        LOG.debug("    Username:                     {}", username);
+        LOG.debug("    Password:                     {}", "******"); // Mask sensitive information
+        LOG.debug("    Poll Mode:                    {}", pollMode);
+        LOG.debug("    OIDs:                         {}", oids);
+        LOG.debug("    Interval:                     {} Seconds", intervalSeconds);
+        LOG.debug("    Timeout:                      {} Seconds", timeoutSeconds);
+        LOG.debug("    Retries:                      {}", retries);
 
         return new SnmpTableSource(
-                producedDataType,
                 targetAgents,
                 snmpVersion,
                 communityString,
@@ -112,6 +120,7 @@ public class SnmpTableSourceFactory implements DynamicTableSourceFactory {
                 oids,
                 intervalSeconds,
                 timeoutSeconds,
-                retries);
+                retries,
+                producedDataType);
     }
 }

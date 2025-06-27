@@ -38,6 +38,10 @@ public class SnmpPollingJob {
 
     public static void main(String[] args) throws Exception {
 
+        System.out.println(
+            Thread.currentThread().getName() + " Method called."
+        );
+        
         LOG.debug("{}: Method called.", 
             Thread.currentThread().getName()
         );
@@ -54,6 +58,10 @@ public class SnmpPollingJob {
             tableToSelectFromName = args[2];
             fullTableName         = String.format("%s.%s.%s", catalogName, databaseName, tableToSelectFromName);
            
+            System.out.println(
+                 Thread.currentThread().getName() + "{} Arguments received: Catalog='{}', Database='{}', Table to Select From='{}'" + catalogName + databaseName + tableToSelectFromName
+            );
+
             LOG.debug("{}: Arguments received: Catalog='{}', Database='{}', Table to Select From='{}'",
                 Thread.currentThread().getName(),
                 catalogName,
@@ -65,9 +73,7 @@ public class SnmpPollingJob {
             LOG.error("{}: ERROR: Insufficient arguments provided. Please provide Catalog Name, Database Name, and the Table Name to Select From.",
                 Thread.currentThread().getName()
             );
-            LOG.error("{}: Usage: flink run -c com.snmp.job.SnmpPollingJob /path/to/snmp-job-1.0-SNAPSHOT.jar <catalog_name> <database_name> <table_to_select_from>",
-                Thread.currentThread().getName()
-            );
+
             return; // Exit if arguments are incorrect
         }
 
@@ -76,7 +82,7 @@ public class SnmpPollingJob {
         env.enableCheckpointing(5000); // Enable checkpointing every 5 seconds for fault tolerance
 
         // Set up the table environment
-        EnvironmentSettings settings = EnvironmentSettings.newInstance().inStreamingMode().build();
+        EnvironmentSettings settings    = EnvironmentSettings.newInstance().inStreamingMode().build();
         StreamTableEnvironment tableEnv = StreamTableEnvironment.create(env, settings);
 
         // This job relies on Flink's configuration to find the specified catalog.

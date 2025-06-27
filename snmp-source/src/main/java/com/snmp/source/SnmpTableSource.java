@@ -35,7 +35,6 @@ import java.util.stream.Collectors;
  */
 public class SnmpTableSource implements ScanTableSource {
 
-    private final DataType      producedDataType;
     private final List<String>  targetAgents;
     private final String        snmpVersion;
     private final String        communityString;
@@ -46,11 +45,11 @@ public class SnmpTableSource implements ScanTableSource {
     private final int           intervalSeconds;
     private final int           timeoutSeconds;
     private final int           retries;
+    private final DataType      producedDataType;
 
     /**
      * Constructor for SnmpTableSource.
      *
-     * @param producedDataType  The data type of the rows produced by this source.
      * @param targetAgents      List of SNMP agent addresses (IP:Port).
      * @param snmpVersion       SNMP version (SNMPv1, SNMPv2c, SNMPv3).
      * @param communityString   Community string for SNMPv1/v2c.
@@ -61,9 +60,9 @@ public class SnmpTableSource implements ScanTableSource {
      * @param intervalSeconds   Polling interval in seconds.
      * @param timeoutSeconds    SNMP request timeout in seconds.
      * @param retries           Number of SNMP request retries.
+     * @param producedDataType  The data type of the rows produced by this source.
      */
     public SnmpTableSource(
-            DataType     producedDataType,
             List<String> targetAgents,
             String       snmpVersion,
             String       communityString,
@@ -73,8 +72,8 @@ public class SnmpTableSource implements ScanTableSource {
             List<String> oids,
             int          intervalSeconds,
             int          timeoutSeconds,
-            int          retries) {
-        this.producedDataType   = producedDataType;
+            int          retries,
+            DataType     producedDataType) {
         this.targetAgents       = targetAgents;
         this.snmpVersion        = snmpVersion;
         this.communityString    = communityString;
@@ -85,19 +84,25 @@ public class SnmpTableSource implements ScanTableSource {
         this.intervalSeconds    = intervalSeconds;
         this.timeoutSeconds     = timeoutSeconds;
         this.retries            = retries;
+        this.producedDataType   = producedDataType;
     }
 
     @Override
     public ChangelogMode getChangelogMode() {
+
+        // SNMP sources typically produce insert-only changes, as they fetch data from agents.
+        // They do not support updates or deletions, so we return insert-only mode.
+        // This means that the source will only emit new rows as they are polled from the agents.
         return ChangelogMode.insertOnly();
     }
 
     @Override
     public ScanRuntimeProvider getScanRuntimeProvider(ScanContext runtimeProviderContext) {
         List<SnmpAgentInfo> agentInfos = targetAgents.stream().map(target -> {
-            String[] parts = target.split(":");
-            String host = parts[0];
-            int port = parts.length > 1 ? Integer.parseInt(parts[1]) : 161;
+           String[]         parts      = target.split(":");
+           String           host       = parts[0];
+           int              port       = parts.length > 1 ? Integer.parseInt(parts[1]) : 161;
+
             return new SnmpAgentInfo(
                     host,
                     port,
@@ -117,8 +122,8 @@ public class SnmpTableSource implements ScanTableSource {
 
     @Override
     public DynamicTableSource copy() {
+
         return new SnmpTableSource(
-                producedDataType,
                 targetAgents,
                 snmpVersion,
                 communityString,
@@ -128,14 +133,18 @@ public class SnmpTableSource implements ScanTableSource {
                 oids,
                 intervalSeconds,
                 timeoutSeconds,
-                retries);
+                retries,
+                producedDataType);
     }
 
     @Override
     public boolean equals(Object o) {
+
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
+        
         SnmpTableSource that = (SnmpTableSource) o;
+
         return intervalSeconds                  == that.intervalSeconds &&
                 timeoutSeconds                  == that.timeoutSeconds &&
                 retries                         == that.retries &&
@@ -151,8 +160,8 @@ public class SnmpTableSource implements ScanTableSource {
 
     @Override
     public int hashCode() {
+
         return Objects.hash(
-                producedDataType,
                 targetAgents,
                 snmpVersion,
                 communityString,
@@ -162,11 +171,13 @@ public class SnmpTableSource implements ScanTableSource {
                 oids,
                 intervalSeconds,
                 timeoutSeconds,
-                retries);
+                retries,
+                producedDataType);
     }
 
     @Override
     public String asSummaryString() {
+
         return "SNMP Table Source";
     } 
 }
