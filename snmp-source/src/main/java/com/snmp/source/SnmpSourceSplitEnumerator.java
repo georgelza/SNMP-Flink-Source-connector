@@ -23,8 +23,6 @@ import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.SplitsAssignment;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -38,6 +36,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSplit, List<SnmpSourceSplit>> {
 
@@ -49,13 +50,14 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
     // State to manage:
     // A map from subtask index to the splits currently assigned to it
     private final Map<Integer, List<SnmpSourceSplit>> assignments;
+
     // Splits that are discovered but not yet assigned
     private final Map<Integer, List<SnmpSourceSplit>> pendingSplits; // Using subtask 0 for simplicity, could be a single list
+
     // Keep track of assigned split IDs to avoid re-assigning if needed
     private final Set<String> assignedSplitIds;
 
     private ScheduledExecutorService discoveryScheduler;
-
 
     public SnmpSourceSplitEnumerator(
             List<SnmpAgentInfo> agentInfos,

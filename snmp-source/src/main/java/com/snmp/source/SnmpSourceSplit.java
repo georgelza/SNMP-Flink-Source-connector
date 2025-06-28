@@ -24,7 +24,7 @@ import org.apache.flink.api.connector.source.SourceSplit;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.io.Serializable; // Import Serializable
+import java.io.Serializable; 
 import java.util.Objects;
 
 /**

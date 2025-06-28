@@ -1,0 +1,12 @@
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpSourceSplit.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpSourceSplitEnumerator.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpConfigOptions.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpSourceSplitSerializer.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpAgentInfo.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpData.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpSourceReader.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/job/SnmpPollingJob.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpDynamicTableSource.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpSource.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpDynamicTableSourceFactory.java
+/Users/george/Desktop/Blogs/10.1.SNMP_Source_Connector/snmp-source/src/main/java/com/snmp/source/SnmpSourceSplitListSerializer.java

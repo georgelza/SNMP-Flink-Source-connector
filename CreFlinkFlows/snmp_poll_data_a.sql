@@ -1,5 +1,5 @@
 -- The IP is used to lookup snmp_device_info.device_id to then retrieve the device_id which is inserted with the data.
-CREATE TABLE hive_catalog.snmp.snmp_poll_data (
+CREATE TABLE hive.snmp.snmp_poll_data (
     device_id               VARCHAR(255) NOT NULL,              -- Foreign key referencing snmp_device_info.device_id
     metric_oid              VARCHAR(255) NOT NULL,              -- Object Identifier (OID) of the polled metric
     metric_value            VARCHAR(1000),                      -- The value of the metric (store as string for flexibility)
@@ -10,12 +10,12 @@ CREATE TABLE hive_catalog.snmp.snmp_poll_data (
     PROC_TIME AS PROCTIME()                                     -- Flink Process time
 ) WITH (
      'connector'                = 'snmp'
-    ,'target'                   = '172.16.10.2:161' -- snmp agent:port
+    ,'target'                   = '172.16.10.2:161,172.16.10.3:161' -- snmp agent:port
     ,'snmp.version'             = 'SNMPv1'                 
     ,'snmp.community-string'    = 'abfr24'                 
-    ,'snmp.poll_mode'           = 'GET'                 
-    ,'oids'                     = 'IF-MIB::ifDescr.2,IF-MIB::ifInOctets.2,IF-MIB::ifOutOctets.2'                 
-    ,'interval_seconds'         = '10'                          
-    ,'timeout_seconds'          = '5'                          
-    ,'retries'                  = '2'
+    ,'snmp.poll_mode'           = 'WALK'
+    ,'oids'                     = '1.3.6.1.2.1.2'                 
+    ,'snmp.interval_seconds'    = '10'                          
+    ,'snmp.timeout_seconds'     = '5'                          
+    ,'snmp.retries'             = '2'
 );

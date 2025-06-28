@@ -42,9 +42,6 @@ public class SnmpPollingJob {
             Thread.currentThread().getName() + " Method called."
         );
         
-        LOG.debug("{}: Method called.", 
-            Thread.currentThread().getName()
-        );
 
         // Parse command-line arguments for catalog, database, and the table to select from
         String catalogName;

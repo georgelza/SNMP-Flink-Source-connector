@@ -20,7 +20,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- <snmp4j.version>2.8.0</snmp4j.version> -->
         <!-- <snmp4j.version>3.6.1</snmp4j.version> -->
-        <snmp4j.version>3.7.3</snmp4j.version>
+        <snmp4j.version>3.6.0</snmp4j.version>
         <slf4j.version>1.7.36</slf4j.version>
         <log4j.version>2.17.1</log4j.version>
         <junit.version>5.10.0</junit.version>
@@ -107,8 +107,13 @@
                 <version>${snmp4j.version}</version>
                 <scope>compile</scope>
             </dependency>
-
-            <!-- Logging dependencies (SLF4J API and Log4j2 binding) -->
+            <dependency>
+                <groupId>org.snmp4j</groupId>
+                <artifactId>snmp4j-agent</artifactId>
+                <version>${snmp4j.version}</version>
+                <scope>compile</scope> <!-- Compile scope so it's shaded into your fat JAR -->
+            </dependency>
+                <!-- Logging dependencies (SLF4J API and Log4j2 binding) -->
             <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>

@@ -16,7 +16,7 @@ CREATE TABLE hive_catalog.snmp.snmp_poll_data (
     ,'snmp.password'            = 'passsword'   
     ,'snmp.poll_mode'           = 'WALK'                 
     ,'oids'                     = '.1.3.6.1.2.1.1'                               
-    ,'interval_seconds'         = '10'                          
-    ,'timeout_seconds'          = '5'                          
-    ,'retries'                  = '2'
+    ,'snmp.interval_seconds'    = '10'                          
+    ,'snmp.timeout_seconds'     = '5'                          
+    ,'snmp.retries'             = '2'
 );

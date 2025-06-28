@@ -27,8 +27,8 @@
 /    The processVariableBinding function then extracts the actual value using vb.getVariable().toString() and constructs a SnmpData object with it.
 /
 /    So, to summarize:
-/    pollSnmpAgent(): Orchestrates the SNMP request (GET or WALK).
-/    processVariableBinding(): Extracts the OID and its corresponding value from the SNMP response and formats it into a SnmpData object.
+/    pollSnmpAgent(): Orchestrates the SNMP request (GET or WALK).\
+/    processVariableBinding(): Extracts the OID and its corresponding value from the SNMP response and formats it into a SnmpData object.\
 /
 *///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -42,7 +42,6 @@ import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
 import org.apache.flink.table.data.TimestampData;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.snmp4j.CommunityTarget;
@@ -56,6 +55,10 @@ import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.UdpAddress;
 import org.snmp4j.smi.VariableBinding;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
+import org.snmp4j.util.TreeEvent;
+import org.snmp4j.util.TreeUtils;
+import org.snmp4j.util.PDUFactory;              // pls take note of the new location of the PDUFactory classes.
+import org.snmp4j.util.DefaultPDUFactory;       // https://javadoc.io/doc/org.snmp4j/snmp4j/3.3.0/org/snmp4j/util/DefaultPDUFactory.html
 import org.snmp4j.smi.Address;
 
 import java.io.IOException;
@@ -67,12 +70,6 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CompletableFuture;
-
-// Import Log4j2 specific classes for programmatic logger level check
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Level;
-
 
 public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> {
 
@@ -89,104 +86,63 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
     // Added: CompletableFuture to signal availability
     private CompletableFuture<Void> availabilityFuture;
 
+
     public SnmpSourceReader(SourceReaderContext readerContext) {
         this.readerContext      = readerContext;
         this.splits             = new ConcurrentLinkedQueue<>();
         this.fetchedRecords     = new ConcurrentLinkedQueue<>();
-        this.lastPollTime       = 0;                                // Initialize last poll time
-        this.availabilityFuture = new CompletableFuture<>();        // Initialize the future
+        this.lastPollTime       = 0; // Initialize last poll time
+        this.availabilityFuture = new CompletableFuture<>(); // Initialize the future
 
-        System.out.println(
-            Thread.currentThread().getName() + " SNMP Source Reader initialized. (Direct System.out)"
-        );
-        LOG.debug("{} SNMP Source Reader initialized.",
-            Thread.currentThread().getName()
-        );
-        
-        // Programmatic Log4j2 level check (keep if you still want to verify Log4j2 setup)
-        // ADDED: Programmatic check for logging level
-        try {
-            LoggerContext loggerContext                     = (LoggerContext) LogManager.getContext(false);
-            org.apache.logging.log4j.core.Logger coreLogger = loggerContext.getLogger(LOG.getName());
-            Level effectiveLevel                            = coreLogger.getLevel();
-
-            System.out.println(Thread.currentThread().getName() + " Effective logging level for " + LOG.getName() + " is " + effectiveLevel.toString() + " (from Log4j2 check).");
-            System.out.println(Thread.currentThread().getName() + " Flink log directory (sys:log.dir) is: " + System.getProperty("log.dir") + " (from Log4j2 check).");
-
-            LOG.info("{} Effective logging level for {} is {}.",
-                Thread.currentThread().getName(),
-                LOG.getName(),
-                effectiveLevel.toString()
-            );
-
-            LOG.info("{} Flink log directory (sys:log.dir) is: {}",
-                Thread.currentThread().getName(),
-                System.getProperty("log.dir")
-            );
-
-        } catch (Exception e) {
-            System.err.println(Thread.currentThread().getName() + " ERROR during Log4j2 programmatic check: " + e.getMessage() + " (Direct System.err)");
-            e.printStackTrace(System.err); // Print stack trace to stderr
-
-        }
+        LOG.debug("{} SNMP Source Reader initialized.", Thread.currentThread().getName());
     }
 
     @Override
     public void start() {
-        
-        System.out.println(
-            Thread.currentThread().getName() + " SNMP Source Reader started. Calling readerContext.sendSplitRequest()..."
-        );
 
-        LOG.debug("{} SNMP Source Reader started. Calling readerContext.sendSplitRequest()...",
-            Thread.currentThread().getName()
-        );
+        LOG.debug("{} SNMP Source Reader started. Requesting splits...", Thread.currentThread().getName());
+        
         // Request splits from the enumerator.
         readerContext.sendSplitRequest();
     }
 
     @Override
     public InputStatus pollNext(ReaderOutput<RowData> output) {
-        LOG.debug("{} pollNext called. Current fetchedRecords size: {}",
-            Thread.currentThread().getName(),
-            fetchedRecords.size()
-        );
+        
+        LOG.debug("{} pollNext called. Current fetchedRecords size: {}", Thread.currentThread().getName(), fetchedRecords.size());
 
         try {
             // If there are already records fetched, emit them.
             while (!fetchedRecords.isEmpty()) {
                 output.collect(fetchedRecords.poll());
-                LOG.debug("{} Emitted a record. Remaining in queue: {}",
-                    Thread.currentThread().getName(),
-                    fetchedRecords.size()
-                );
+        
+                LOG.debug("{} Emitted a record. Remaining in queue: {}", Thread.currentThread().getName(), fetchedRecords.size());
                 // If we just emitted a record, we might have more, or we might need to poll again.
                 // For a continuous source, we indicate MORE_AVAILABLE if there's any chance of more data.
                 // We also ensure the availability future is completed as data has been made available.
                 if (!availabilityFuture.isDone()) {
                     availabilityFuture.complete(null);
                 }
+        
                 return InputStatus.MORE_AVAILABLE;
             }
 
             // If no current agent info, assign a new split
             if (currentAgentInfo == null) {
-                LOG.debug("{} currentAgentInfo is null. Attempting to assign next split.",
-                    Thread.currentThread().getName()
-                );
+        
+                LOG.debug("{} currentAgentInfo is null. Attempting to assign next split.", Thread.currentThread().getName());
                 assignNextSplit();
                 if (currentAgentInfo == null) {
-                    LOG.debug("{} No splits available or assigned.",
-                        Thread.currentThread().getName()
-                    );
+                    LOG.debug("{} No splits available or assigned. (NOTHING_AVAILABLE)", Thread.currentThread().getName());
                     // If no splits and no records, we are currently not available.
                     // The availability future should remain incomplete until a split is assigned or new data is ready.
+        
                     return InputStatus.NOTHING_AVAILABLE;
                 }
             }
 
-            long currentTime = System.currentTimeMillis();
-            long requiredInterval = (long) currentAgentInfo.getIntervalSeconds() * 1000;
+            long currentTime        = System.currentTimeMillis();
+            long requiredInterval   = (long) currentAgentInfo.getIntervalSeconds() * 1000;
 
             // Check if it's time to poll the SNMP agent again
             if (currentTime - lastPollTime >= requiredInterval) {
@@ -208,32 +164,35 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                     return InputStatus.MORE_AVAILABLE;
                 }
             } else {
-                LOG.debug("{} Not yet time to poll. Next poll in {} ms for agent {}.",
+                LOG.debug("{} Not yet time to poll. Next poll in {} ms for agent {}. (NOTHING_AVAILABLE)",
                     Thread.currentThread().getName(),
-                        (requiredInterval - (currentTime - lastPollTime)),
-                        currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
+                    (requiredInterval - (currentTime - lastPollTime)),
+                    currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
                 );
             }
 
             // If no records were fetched and it's not time to poll, reset availabilityFuture
             // to an incomplete state so Flink can wait for it.
             if (availabilityFuture.isDone()) {
-                this.availabilityFuture = new CompletableFuture<>();
+                this.availabilityFuture = new CompletableFuture<>(); // Reset for next wait
             }
             return InputStatus.NOTHING_AVAILABLE; // No records currently available, but might be later
         } catch (Exception e) {
-            LOG.error("{} Critical error in pollNext: {} {}",
-                Thread.currentThread().getName(),
-                e.getMessage(),
-                e
-            );
-            // On critical error, fail the availability future
+            LOG.error("{} Critical error in pollNext: {}.", Thread.currentThread().getName(), e.getMessage(), e);
+
+            // On critical error, fail the availability future and propagate the error.
             availabilityFuture.completeExceptionally(e);
-            return InputStatus.NOTHING_AVAILABLE;
+            // Propagate the error by throwing a RuntimeException
+            throw new RuntimeException("Critical error in SNMP Source Reader.", e);
         }
     }
 
-    // Added: Implementation of isAvailable()
+    /**
+     * Returns a {@link CompletableFuture} that is completed when the source has more data available.
+     * This method is crucial for Flink's backpressure mechanism.
+     *
+     * @return A CompletableFuture that completes when more data is available.
+     */
     @Override
     public CompletableFuture<Void> isAvailable() {
         // If there are fetched records, we are immediately available.
@@ -250,65 +209,53 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
     private void assignNextSplit() {
         SnmpSourceSplit split = splits.poll();
         if (split != null) {
-            LOG.info("{} Assigning new split: {}",
-                Thread.currentThread().getName(),
-                split.splitId()
-            );
+            LOG.info("{} Assigning new split: {}", Thread.currentThread().getName(), split.splitId());
             currentAgentInfo = split.getAgentInfo();
+
             // Initialize SNMP object for the current agent if not already initialized or if agent changed
             if (currentSnmp == null) {
                 try {
                     TransportMapping<UdpAddress> transport = new DefaultUdpTransportMapping();
                     currentSnmp = new Snmp(transport);
                     transport.listen();
-                    LOG.info("{} SNMP TransportMapping listening.",
-                        Thread.currentThread().getName()
-                    );
+                    LOG.info("{} SNMP TransportMapping listening.", Thread.currentThread().getName());
+
                     // A new split means we are now ready to poll, so complete the availability future
                     if (availabilityFuture.isDone()) {
                         this.availabilityFuture = new CompletableFuture<>(); // Create new future if previous was done
                     }
                     availabilityFuture.complete(null); // Signal availability
                 } catch (IOException e) {
-                    LOG.error("{} Failed to initialize SNMP transport: {} {}",
-                        Thread.currentThread().getName(),
-                        e.getMessage(),
-                        e
-                    );
+                    LOG.error("{} Failed to initialize SNMP transport: {}", Thread.currentThread().getName(), e.getMessage(), e);
                     currentSnmp = null; // Clear currentSnmp to reattempt initialization
                     availabilityFuture.completeExceptionally(e); // Fail availability future
                     throw new RuntimeException("Failed to initialize SNMP transport mapping.", e);
                 }
             } else {
                  // If a split is assigned and SNMP is already initialized, signal availability
+                 // This handles the case where pollNext() asks for splits, and we assign one
+                 // but SNMP transport was already set up.
                  if (availabilityFuture.isDone()) {
                     this.availabilityFuture = new CompletableFuture<>();
                  }
                  availabilityFuture.complete(null);
             }
         } else {
-            LOG.debug("{} No more splits in queue.",
-                Thread.currentThread().getName()
-            );
+            LOG.debug("{} No more splits in queue. (currentAgentInfo set to null)", Thread.currentThread().getName());
             currentAgentInfo = null; // No splits to assign
             // If no splits, we might not be available until new splits arrive.
-            // The future should remain incomplete unless explicitly signaled.
+            // The future should remain incomplete unless explicitly signaled by addSplits.
         }
     }
 
 
     private void pollSnmpAgent() {
         if (currentAgentInfo == null || currentSnmp == null) {
-            LOG.warn("{} Cannot poll SNMP agent: currentAgentInfo or currentSnmp is null.",
-                Thread.currentThread().getName()
-            );
+            LOG.warn("{} Cannot poll SNMP agent: currentAgentInfo or currentSnmp is null. Skipping poll.", Thread.currentThread().getName());
             return;
         }
 
-        LOG.debug("{} Polling agent: {}",
-            Thread.currentThread().getName(),
-            currentAgentInfo.getHost()
-        );
+        LOG.debug("{} Polling agent: {}", Thread.currentThread().getName(), currentAgentInfo.getHost());
 
         try {
             CommunityTarget<UdpAddress> target = new CommunityTarget<>();
@@ -321,13 +268,10 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             // Handle SNMP version specific settings if needed (e.g., for SNMPv3)
             if (currentAgentInfo.getSnmpVersion().equalsIgnoreCase("SNMPv1")) {
                 target.setVersion(SnmpConstants.version1);
-
             } else if (currentAgentInfo.getSnmpVersion().equalsIgnoreCase("SNMPv3")) {
                 // SNMPv3 setup is more complex, requires UserTarget and UserTable
                 // For simplicity, we are focusing on v1/v2c for now as per current examples.
-                LOG.warn("{} SNMPv3 is not fully implemented in this example. Falling back to SNMPv2c.",
-                    Thread.currentThread().getName()
-                );
+                LOG.warn("{} SNMPv3 is not fully implemented in this example. Falling back to SNMPv2c.", Thread.currentThread().getName());
                 target.setVersion(SnmpConstants.version2c);
             }
 
@@ -343,100 +287,48 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 }
                 pdu.setType(PDU.GET);
 
-                LOG.debug("{} Sending SNMP GET request for OIDs: {}",
-                    Thread.currentThread().getName(),
-                    oidsToRequest
-                );
-
+                LOG.debug("{} Sending SNMP GET request for OIDs: {}", Thread.currentThread().getName(), oidsToRequest);
                 ResponseEvent<UdpAddress> responseEvent = currentSnmp.send(pdu, target);
                 if (responseEvent != null && responseEvent.getResponse() != null) {
                     PDU responsePDU = responseEvent.getResponse();
-                    LOG.debug("{} Received SNMP GET response with {} variable bindings.",
-                        Thread.currentThread().getName(),
-                        responsePDU.size()
-                    );
+                    LOG.debug("{} Received SNMP GET response with {} variable bindings.", Thread.currentThread().getName(), responsePDU.size());
                     for (int i = 0; i < responsePDU.size(); i++) {
                         VariableBinding vb = responsePDU.get(i);
                         processVariableBinding(vb);
                     }
-                    // If records were just processed, signal availability
-                    if (!availabilityFuture.isDone()) {
-                        availabilityFuture.complete(null);
-                    }
                 } else {
-                    LOG.warn("{} No response or empty response received for GET request from agent {}.",
+                    LOG.warn("{} No response or empty response received for GET request from agent {}. (ResponseEvent was null or response was null)",
                         Thread.currentThread().getName(),
                         currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
                     );
                 }
             } else if (currentAgentInfo.getPollMode().equalsIgnoreCase("WALK")) {
-                LOG.debug("{} Sending SNMP WALK request for OIDs: {}",
-                    Thread.currentThread().getName(),
-                    oidsToRequest
-                );
-
-                // Manual SNMP WALK implementation, replacing TreeUtils usage
+                LOG.debug("{} Sending SNMP WALK request for OIDs: {}", Thread.currentThread().getName(), oidsToRequest);
+                // For WALK, usually one root OID is provided per walk
                 for (OID rootOid : oidsToRequest) {
-                    OID currentOid = rootOid;
-                    int retriesCount = 0; // To prevent infinite loops if an agent responds poorly
+                    // Corrected: TreeUtils constructor takes Snmp and PDUFactory
+                    TreeUtils treeUtils = new TreeUtils(currentSnmp, new DefaultPDUFactory());
+                    List<TreeEvent> events = treeUtils.walk(target, new OID[]{rootOid});
 
-                    while (currentOid != null && currentOid.startsWith(rootOid) && retriesCount < target.getRetries() * 5) { // Add a safety break
-                        PDU getNextPDU = new PDU();
-                        getNextPDU.add(new VariableBinding(currentOid));
-                        getNextPDU.setType(PDU.GETNEXT);
-
-                        LOG.debug("{} Sending SNMP GETNEXT request for OID: {}",
+                    if (events == null || events.isEmpty()) {
+                        LOG.warn("{} No WALK events received for OID {} from agent {}.",
                             Thread.currentThread().getName(),
-                            currentOid
+                            rootOid.toString(),
+                            currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
                         );
-                        ResponseEvent<UdpAddress> responseEvent = currentSnmp.send(getNextPDU, target);
+                        continue;
+                    }
 
-                        if (responseEvent != null && responseEvent.getResponse() != null) {
-                            PDU responsePDU = responseEvent.getResponse();
-                            if (responsePDU.size() > 0) {
-                                VariableBinding vb = responsePDU.get(0);
-                                if (vb != null && vb.getOid() != null && vb.getOid().startsWith(rootOid)) {
-                                    // Found a valid variable binding within the walk scope
-                                    processVariableBinding(vb);
-                                    currentOid = vb.getOid();   // Continue walk with the next OID
-                                    retriesCount = 0;           // Reset retry counter on success
-                                    // If records were just processed, signal availability
-                                    if (!availabilityFuture.isDone()) {
-                                        availabilityFuture.complete(null);
-                                    }
-                                } else {
-                                    // End of walk for this root OID (OID moved out of scope)
-                                    LOG.debug("{} End of WALK for OID {}. Last OID was {}.",
-                                        Thread.currentThread().getName(),
-                                        rootOid,
-                                        (vb != null ? vb.getOid() : "null")
-                                    );
-                                    currentOid = null;
-                                }
-                            } else {
-                                LOG.warn("{} Empty response for GETNEXT from agent {} for OID {}. Ending walk.",
-                                    Thread.currentThread().getName(),
-                                    currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort(),
-                                    currentOid
-                                );
-                                currentOid = null; // End of walk
-                            }
-                        } else {
-                            LOG.warn("{} No response or empty response received for GETNEXT from agent {} for OID {}. Retrying...",
+                    for (TreeEvent event : events) {
+                        if (event.getVariableBindings() == null) {
+                            LOG.warn("{} WALK event for OID {} has null variable bindings.",
                                 Thread.currentThread().getName(),
-                                currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort(),
-                                currentOid
+                                rootOid.toString()
                             );
-                            retriesCount++; // Increment retry counter
-                            // No change to currentOid, will retry the same OID
-                            if (retriesCount >= target.getRetries() * 5) { // If too many retries, break loop
-                                LOG.error("{} Max retries reached for GETNEXT from agent {} for OID {}. Aborting walk for this OID.",
-                                    Thread.currentThread().getName(),
-                                    currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort(),
-                                    currentOid
-                                );
-                                currentOid = null; // Abort walk
-                            }
+                            continue;
+                        }
+                        for (VariableBinding vb : event.getVariableBindings()) {
+                            processVariableBinding(vb);
                         }
                     }
                 }
@@ -447,37 +339,21 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 );
             }
         } catch (Exception e) {
-            LOG.error("{} Critical error during SNMP polling for agent {}: {} {}",
+            LOG.error("{} Critical error during SNMP polling for agent {}: {}",
                 Thread.currentThread().getName(),
                 currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort(),
                 e.getMessage(),
                 e
             );
-            availabilityFuture.completeExceptionally(e); // Fail availability future on critical error
+            // Re-throw as RuntimeException to fail the task, as checked exceptions are generally not allowed here.
             throw new RuntimeException("Error during SNMP polling.", e);
         }
     }
 
 
     private void processVariableBinding(VariableBinding vb) {
-        // ADDED LOG STATEMENT: Log raw VariableBinding before any checks
-        LOG.info("{} Raw VariableBinding received: {}",
-            Thread.currentThread().getName(),
-            vb != null ? vb.toString() : "null"
-        );
-        LOG.info("{} Raw OID: {}",
-            Thread.currentThread().getName(),
-            (vb != null && vb.getOid() != null) ? vb.getOid().toString() : "null"
-        );
-        LOG.info("{} Raw Variable: {}",
-            Thread.currentThread().getName(),
-            (vb != null && vb.getVariable() != null) ? vb.getVariable().toString() : "null"
-        );
-
         if (vb == null) {
-            LOG.warn("{} Received null VariableBinding. Skipping processing.",
-                Thread.currentThread().getName()
-            );
+            LOG.warn("{} Received null VariableBinding. Skipping processing.", Thread.currentThread().getName());
             return;
         }
 
@@ -504,7 +380,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 }
 
             } catch (Exception e) {
-                LOG.error("{} Error converting SNMP Variable to String for OID {}: {} {}",
+                LOG.error("{} Error converting SNMP Variable to String for OID {}: {}",
                     Thread.currentThread().getName(),
                     metricOid,
                     e.getMessage(),
@@ -520,31 +396,18 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             metricValue = null;
         }
 
-        // IMPORTANT: If device_id or metric_oid are NOT NULL in SQL schema,
-        // they MUST NOT be null here.
-        // We are already returning if deviceId or metricOid are null.
-        // The check below ensures that if the field is NOT NULL in SQL,
-        // we provide a non-null value or explicitly throw an error for unrecoverable data.
-
-        // Re-confirming deviceId is not null based on previous logic (derived from host)
-        if (deviceId == null || deviceId.trim().isEmpty()) { // Also check for empty string
-            LOG.error("{} deviceId is null or empty. Assigning 'UNKNOWN_DEVICE_ID' as placeholder for NOT NULL column. Agent Host: {}",
-                Thread.currentThread().getName(),
-                (currentAgentInfo != null ? currentAgentInfo.getHost() : "null_agent_info")
+        if (deviceId == null) {
+            LOG.error("{} deviceId is null. Cannot create SnmpData record. Source Agent: {}",
+                Thread.currentThread().getName(), currentAgentInfo.getHost()
             );
-            deviceId = "UNKNOWN_DEVICE_ID"; // Provide a non-null placeholder
+            return;
         }
-
-        // Ensure metricOid is never null before creating SnmpData or RowData
-        if (metricOid == null || metricOid.trim().isEmpty()) { // Also check for empty string
-            LOG.error("{} metricOid is null or empty for device {}. Assigning 'UNKNOWN_OID' as placeholder for NOT NULL column. Raw VB: {}",
-                Thread.currentThread().getName(),
-                deviceId,
-                vb.toString()
+        if (metricOid == null) {
+            LOG.error("{} metricOid is null. Cannot create SnmpData record. Device: {}",
+                Thread.currentThread().getName(), deviceId
             );
-            metricOid = "UNKNOWN_OID"; // Provide a non-null placeholder
+            return;
         }
-
 
         SnmpData snmpData = new SnmpData(
                 deviceId,
@@ -555,25 +418,12 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 LocalDateTime.now()
         );
 
-        LOG.info("{} Fetched SnmpData: {}",
-            Thread.currentThread().getName(),
-            snmpData.toString()
-        );
+        LOG.info("{} Fetched SnmpData: {}", Thread.currentThread().getName(), snmpData.toString());
 
         GenericRowData rowData = new GenericRowData(6);
         rowData.setField(0, StringData.fromString(snmpData.getDeviceId()));
-        // The previous NPE on String.length() suggests that even if snmpData.getMetricOid() was not null,
-        // Flink's internal StringData.fromString might have issues with it, OR
-        // the NPE is happening when Flink tries to convert a null StringData *into* a NOT NULL VARCHAR.
-        // The previous fix already checked for null snmpData.getMetricOoid().
-        // If it's still failing for a NOT NULL column, the null check is critical.
-        // Since metric_oid is NOT NULL, it MUST NOT be null when passed to setField.
-        // The 'return' earlier if metricOid is null should handle this.
-        // If the NPE still occurs on metric_oid field after the 'return' logic,
-        // it means a non-null OID is somehow causing issues. Let's make sure the StringData conversion is robust.
-        // No change needed here if the `return` statement above is effectively preventing nulls.
-        rowData.setField(1, StringData.fromString(snmpData.getMetricOid())); // This OID should be guaranteed non-null by checks above
-
+        rowData.setField(1, StringData.fromString(snmpData.getMetricOid()));
+        
         rowData.setField(2, snmpData.getMetricValue() != null ? StringData.fromString(snmpData.getMetricValue()) : null);
         rowData.setField(3, snmpData.getDataType() != null ? StringData.fromString(snmpData.getDataType()) : null);
         rowData.setField(4, snmpData.getInstanceIdentifier() != null ? StringData.fromString(snmpData.getInstanceIdentifier()) : null);
@@ -581,10 +431,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         rowData.setField(5, TimestampData.fromLocalDateTime(snmpData.getTs()));
 
         fetchedRecords.offer(rowData);
-        LOG.debug("{} Added RowData to fetchedRecords queue: {}",
-            Thread.currentThread().getName(),
-            rowData.toString()
-        );
+        LOG.debug("{} Added RowData to fetchedRecords queue: {}", Thread.currentThread().getName(), rowData.toString());
     }
 
     @Override
@@ -598,27 +445,16 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         List<SnmpSourceSplit> state = new ArrayList<>(splits);
         if (currentAgentInfo != null) {
             state.add(new SnmpSourceSplit(currentAgentInfo.getHost() + "_" + System.currentTimeMillis(), currentAgentInfo));
-            LOG.debug("{} Added current agent info to snapshot state. Total: {}",
-                Thread.currentThread().getName(),
-                state.size()
-            );
+            LOG.debug("{} Added current agent info to snapshot state. Total: {}", Thread.currentThread().getName(), state.size());
         }
         return state;
     }
 
     @Override
     public void addSplits(List<SnmpSourceSplit> newSplits) {
-        LOG.debug("{} Called, Adding {} new splits.",
-            Thread.currentThread().getName(),
-            newSplits.size()
-        );
-
+        LOG.debug("{} Called, Adding {} new splits.", Thread.currentThread().getName(), newSplits.size());
         splits.addAll(newSplits);
-        LOG.debug("{} Total splits in queue after add: {}. Attempting to assign if needed.",
-            Thread.currentThread().getName(),
-            splits.size()
-        );
-
+        LOG.debug("{} Total splits in queue after add: {}. Attempting to assign if needed.", Thread.currentThread().getName(), splits.size());
         if (currentAgentInfo == null && !splits.isEmpty()) {
             assignNextSplit();
         }
@@ -626,18 +462,12 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
     @Override
     public void handleSourceEvents(org.apache.flink.api.connector.source.SourceEvent sourceEvent) {
-        LOG.debug("{} Called, Handling source event: {}",
-            Thread.currentThread().getName(),
-            sourceEvent.getClass().getSimpleName()
-        );
+        LOG.debug("{} Called, Handling source event: {}", Thread.currentThread().getName(), sourceEvent.getClass().getSimpleName());
     }
 
     @Override
     public void close() throws Exception {
-        LOG.debug("{} Called, Closing SNMP Source Reader.",
-            Thread.currentThread().getName()
-        );
-
+        LOG.debug("{} Called, Closing SNMP Source Reader.", Thread.currentThread().getName());
         if (currentSnmp != null) {
             currentSnmp.close();
             currentSnmp = null;
@@ -645,27 +475,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         fetchedRecords.clear();
         splits.clear();
         currentAgentInfo = null;
-        LOG.debug("{} Called, SNMP Source Reader resources cleared.",
-            Thread.currentThread().getName()
-        );
-        // Complete the future if the reader is closing
-        if (!availabilityFuture.isDone()) {
-            availabilityFuture.complete(null); // Signal that no more data will be available
-        }
-    }
-
-    @Override // This annotation indicates it's overriding an interface method.
-    public void notifyNoMoreSplits() {
-        LOG.debug("{} Called, notifyNoMoreSplits. No more splits will be added to this reader.",
-            Thread.currentThread().getName()
-        );
-
-        // For an unbounded source, this might mean the enumerator has no more splits to hand out
-        // or has decided to stop. For this continuous polling source, the reader will just continue
-        // polling the currently assigned splits indefinitely.
-        // If it truly means no more data can ever be produced, complete the future
-        // If the source is truly unbounded and splits can dynamically appear, keep it open.
-        // For now, assuming it continues polling existing splits indefinitely, so availability remains.
+        LOG.debug("{} Called, SNMP Source Reader resources cleared.", Thread.currentThread().getName());
     }
 
     // This method is not part of the SourceReader interface, it's an internal helper
@@ -697,5 +507,9 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         }
     }
 
+    @Override
+    public void notifyNoMoreSplits() {
+        LOG.debug("{} notifyNoMoreSplits called. No more splits expected.", Thread.currentThread().getName());
+        // For a continuous source, this method typically does nothing as new data might still arrive from polling.
+    }
 }
-
