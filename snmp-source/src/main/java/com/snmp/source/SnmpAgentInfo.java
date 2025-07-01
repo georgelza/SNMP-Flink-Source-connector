@@ -36,8 +36,8 @@ public class SnmpAgentInfo implements Serializable {
     private int          port;
     private String       snmpVersion;
     private String       communityString;
-    private String       userName;
-    private String       password;
+    private String       userName; //
+    private String       password; //
     private String       pollMode;
     private List<String> oids;
     private int          intervalSeconds;
@@ -47,45 +47,46 @@ public class SnmpAgentInfo implements Serializable {
     /**
      * Constructor for SnmpAgentInfo.
      *
-     * @param host              The hostname or IP address of the SNMP agent.
-     * @param port              The UDP port of the SNMP agent (usually 161).
-     * @param snmpVersion       The SNMP version to use (e.g., "SNMPv1", "SNMPv2c", "SNMPv3").
-     * @param communityString   The community string for SNMPv1/v2c agents.
-     * @param userName          The username for SNMPv3 agents.
-     * @param password          The password for SNMPv3 agents.
-     * @param pollMode          The polling mode ("GET" or "WALK").
-     * @param oids              A list of OIDs to poll or walk.
-     * @param intervalSeconds   The polling interval in seconds.
-     * @param timeoutSeconds    The timeout for SNMP requests in seconds.
-     * @param retries           The number of retries for SNMP requests.
+     * @param host            The hostname or IP address of the SNMP agent.
+     * @param port            The port number of the SNMP agent (default 161).
+     * @param snmpVersion     The SNMP version (e.g., "SNMPv2c", "SNMPv1", "SNMPv3").
+     * @param communityString The community string for SNMPv1/v2c.
+     * @param userName        The username for SNMPv3 authentication.
+     * @param password        The password for SNMPv3 authentication.
+     * @param pollMode        The polling mode ("GET" or "WALK").
+     * @param oids            A list of OIDs to poll.
+     * @param intervalSeconds The polling interval in seconds.
+     * @param timeoutSeconds  The SNMP request timeout in seconds.
+     * @param retries         The number of retries for SNMP requests.
      */
     public SnmpAgentInfo(
-            String       host,
-            int          port,
-            String       snmpVersion,
-            String       communityString,
-            String       userName,
-            String       password,
-            String       pollMode,
-            List<String> oids,
-            int          intervalSeconds,
-            int          timeoutSeconds,
-            int          retries) {
-                
-        this.host            = Objects.requireNonNull(host, "Host cannot be null.");
-        this.port            = port;
-        this.snmpVersion     = Objects.requireNonNull(snmpVersion, "SNMP Version cannot be null.");
+        String host,
+        int port,
+        String snmpVersion,
+        String communityString,
+        String userName, //
+        String password, //
+        String pollMode,
+        List<String> oids,
+        int intervalSeconds,
+        int timeoutSeconds,
+        int retries)
+    {
+        this.host = host;
+        this.port = port;
+        this.snmpVersion = snmpVersion;
         this.communityString = communityString;
-        this.userName        = userName;
-        this.password        = password;
-        this.pollMode        = Objects.requireNonNull(pollMode, "Poll mode cannot be null.");
-        this.oids            = Objects.requireNonNull(oids, "OIDs list cannot be null.");
+        this.userName = userName; //
+        this.password = password; //
+        this.pollMode = pollMode;
+        this.oids = oids;
         this.intervalSeconds = intervalSeconds;
-        this.timeoutSeconds  = timeoutSeconds;
-        this.retries         = retries;
+        this.timeoutSeconds = timeoutSeconds;
+        this.retries = retries;
     }
 
-    // Getters for all fields
+    // Getters for all fields (omitted for brevity, assume they exist)
+
     public String getHost() {
         return host;
     }
@@ -102,11 +103,11 @@ public class SnmpAgentInfo implements Serializable {
         return communityString;
     }
 
-    public String getUserName() {
+    public String getUserName() { //
         return userName;
     }
 
-    public String getPassword() {
+    public String getPassword() { //
         return password;
     }
 
@@ -134,9 +135,7 @@ public class SnmpAgentInfo implements Serializable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         SnmpAgentInfo that = (SnmpAgentInfo) o;
-        
         return port == that.port &&
                 intervalSeconds == that.intervalSeconds &&
                 timeoutSeconds == that.timeoutSeconds &&
@@ -144,6 +143,8 @@ public class SnmpAgentInfo implements Serializable {
                 host.equals(that.host) &&
                 snmpVersion.equals(that.snmpVersion) &&
                 communityString.equals(that.communityString) &&
+                Objects.equals(userName, that.userName) && //
+                Objects.equals(password, that.password) && //
                 pollMode.equals(that.pollMode) &&
                 oids.equals(that.oids);
     }
@@ -155,8 +156,8 @@ public class SnmpAgentInfo implements Serializable {
             port, 
             snmpVersion, 
             communityString, 
-            userName,
-            password,
+            userName, //
+            password, //
             pollMode, 
             oids, 
             intervalSeconds, 
@@ -171,8 +172,8 @@ public class SnmpAgentInfo implements Serializable {
                 "   ,port=             " + port +
                 "   ,snmpVersion=     '" + snmpVersion + '\'' +
                 "   ,communityString= '" + "*********" + '\'' +
-                "   ,userName=        '" + userName + '\'' +    
-                "   ,password=        '" + "*********" + '\'' +
+                "   ,userName=        '" + userName + '\'' +    //
+                "   ,password=        '" + "*********" + '\'' + //
                 "   ,pollMode=        '" + pollMode + '\'' +
                 "   ,oids=             " + oids +
                 "   ,intervalSeconds=  " + intervalSeconds +

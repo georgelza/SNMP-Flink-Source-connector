@@ -28,8 +28,9 @@
 .vscode/
 venv/*
 
-# Datagen
 
-# check basic setup
+snmp-mib-loader/target
+snmp-source/target
 
+misc/*
 old/*

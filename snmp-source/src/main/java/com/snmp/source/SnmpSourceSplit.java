@@ -1,6 +1,6 @@
 /* //////////////////////////////////////////////////////////////////////////////////////////////////////
 /
-/ 
+/
 /       Project         :   Apache Flink SNMP Source connector
 /
 /       File            :   SnmpSourceSplit.java
@@ -50,27 +50,57 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
      * @param agentInfo The SNMP agent information associated with this split.
      */
     public SnmpSourceSplit(String splitId, SnmpAgentInfo agentInfo) {
+
+        System.out.println("SnmpSourceSplit: called for Thread: " 
+            + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         this.splitId   = Objects.requireNonNull(splitId,   "Split ID cannot be null");
         this.agentInfo = Objects.requireNonNull(agentInfo, "AgentInfo cannot be null");
     }
 
     @Override
     public String splitId() {
+        
+        System.out.println("SnmpSourceSplit: splitId() called for Thread: " 
+            + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+        
         return splitId;
     }
 
     public SnmpAgentInfo getAgentInfo() {
+        
+        System.out.println("SnmpSourceSplit: getAgentInfo() called for Thread: " 
+            + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+        
         return agentInfo;
     }
 
     // Custom serialization method
     private void writeObject(ObjectOutputStream out) throws IOException {
+
+        System.out.println("SnmpSourceSplit: writeObject() called for Thread: " 
+            + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         out.writeUTF(splitId);
         out.writeObject(agentInfo); // This will trigger SnmpAgentInfo's custom writeObject
     }
 
     // Custom deserialization method
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+
+        System.out.println("SnmpSourceSplit: readObject() called for Thread: " 
+            + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         splitId = in.readUTF();
         agentInfo = (SnmpAgentInfo) in.readObject(); // This will trigger SnmpAgentInfo's custom readObject
     }

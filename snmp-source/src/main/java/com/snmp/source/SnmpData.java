@@ -45,28 +45,30 @@ public class SnmpData implements Serializable {
     /**
      * Constructs a new SnmpData object.
      *
-     * @param deviceId              The ID of the device (e.g., IP:Port).
-     * @param metricOid             The full OID of the polled metric.
-     * @param metricValue           The value of the metric.
-     * @param dataType              The SNMP data type (e.g., "Gauge", "Counter").
-     * @param instanceIdentifier    An identifier for table-based OIDs (e.g., interface index). Can be null.
+     * @param deviceId              The ID of the device (e.g., host:port).
+     * @param metricOid             The OID of the polled metric.
+     * @param metricValue           The value of the polled metric.
+     * @param dataType              The SNMP data type of the value (e.g., "OCTET STRING", "INTEGER").
+     * @param instanceIdentifier    An identifier for the specific instance of a table-based OID (e.g., ".1.1.0" for .1.3.6.1.2.1.1.1.0).
      * @param ts                    The timestamp when the data was collected.
      */
     public SnmpData(
-            String          deviceId,
-            String          metricOid,
-            String          metricValue,
-            String          dataType,
-            String          instanceIdentifier,
-            LocalDateTime   ts) {
-        this.deviceId           = deviceId;
-        this.metricOid          = metricOid;
-        this.metricValue        = metricValue;
-        this.dataType           = dataType;
+        String deviceId,
+        String metricOid,
+        String metricValue,
+        String dataType,
+        String instanceIdentifier,
+        LocalDateTime ts)
+    {
+        this.deviceId = deviceId;
+        this.metricOid = metricOid;
+        this.metricValue = metricValue;
+        this.dataType = dataType;
         this.instanceIdentifier = instanceIdentifier;
-        this.ts                 = ts;
+        this.ts = ts;
     }
 
+    // Getters and Setters for all fields (omitted for brevity)
     public String getDeviceId() {
         return deviceId;
     }
@@ -117,8 +119,10 @@ public class SnmpData implements Serializable {
 
     @Override
     public boolean equals(Object o) {
+
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
+        
         SnmpData snmpData = (SnmpData) o;
 
         return Objects.equals(deviceId,             snmpData.deviceId) &&
