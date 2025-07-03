@@ -1,8 +1,7 @@
 # MVP: SNMP Flink Source connector (scraper)
 
-NOTE: This is still early days and allot is changing between all git sync's
 
-Dont even try and use it yet.
+Bypass most of the below, just go to `devlab0/README.md`
 
 
 ## Overview
@@ -17,7 +16,7 @@ The MIB files will be loaded into either a MySql. PostgreSQL or REDIS in memory 
 ToDo: Need to come up with solution how to handle inbound SNMP Traps.
 
 
-### EXecuting Polling Job
+### Executing Polling Job
 
 This can be done by either running the below SQL statement against the created table or by submitting the below job in the job manager.
 
@@ -49,7 +48,6 @@ snmpget -v1 -c passsword 172.16.10.24 sysDescr.0
 ### References
 
 - [Gettin Started with snmp](https://www.easysnmp.com/tutorial/getting-snmp-data/)
-
 
 
 ### Credits:
