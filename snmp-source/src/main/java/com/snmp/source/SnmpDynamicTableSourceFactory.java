@@ -43,23 +43,43 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
     private static final Logger LOG = LoggerFactory.getLogger(SnmpDynamicTableSourceFactory.class);
 
     static {
+
         LOG.debug("{} SnmpDynamicTableSourceFactory: Static initializer called.",
             Thread.currentThread().getName()
+        );
+        
+        System.out.println("\n SnmpDynamicTableSourceFactory: Static initializer called." 
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
         );
     }
 
     public SnmpDynamicTableSourceFactory() {
+
         LOG.debug("{} SnmpDynamicTableSourceFactory: Constructor called.",
             Thread.currentThread().getName()
+        );
+
+        System.out.println("\n SnmpDynamicTableSourceFactory: Constructor called." 
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
         );
     }
 
     @Override
     public String factoryIdentifier() {
+    
         LOG.debug("{} SnmpDynamicTableSourceFactory: factoryIdentifier() called.",
             Thread.currentThread().getName()
         );
+
+        System.out.println("\n SnmpDynamicTableSourceFactory: factoryIdentifier() called." 
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         return "snmp";
+    
     }
 
     @Override
@@ -69,6 +89,11 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
             Thread.currentThread().getName()
         );
         
+        System.out.println("\n SnmpDynamicTableSourceFactory: requiredOptions() called." 
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         final Set<ConfigOption<?>> options = new HashSet<>();
         
         options.add(TARGET);
@@ -79,6 +104,11 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
             Thread.currentThread().getName()
         );
         
+        System.out.println("\n SnmpDynamicTableSourceFactory: requiredOptions() Completed" 
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         return options;
     }
 
@@ -89,6 +119,11 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
             Thread.currentThread().getName()
         );
         
+        System.out.println("\n SnmpDynamicTableSourceFactory: optionalOptions() called." 
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         final Set<ConfigOption<?>> options = new HashSet<>();
         
         options.add(SNMP_VERSION);
@@ -105,14 +140,24 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
             Thread.currentThread().getName()
         );
         
+        System.out.println("\n SnmpDynamicTableSourceFactory: optionalOptions() Completed" 
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         return options;
     }
 
     @Override
     public DynamicTableSource createDynamicTableSource(Context context) {
 
-        LOG.debug("{} SnmpDynamicTableSourceFactory: createDynamicTableSource() called.",
+        LOG.debug("\n {} SnmpDynamicTableSourceFactory: createDynamicTableSource() called.",
             Thread.currentThread().getName()
+        );
+
+        System.out.println("\n SnmpDynamicTableSourceFactory: createDynamicTableSource() called" 
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
         );
 
         final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
@@ -126,8 +171,8 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
         final String communityString    = config.getOptional(SNMP_COMMUNITY_STRING).orElse("public");
         final String userName           = config.getOptional(SNMP_USERNAME).orElse(null);
         final String password           = config.getOptional(SNMP_PASSWORD).orElse(null);
-        final String authProtocol       = config.get(SNMPV3_AUTH_PROTOCOL);
-        final String privProtocol       = config.get(SNMPV3_PRIV_PROTOCOL);
+        final String authProtocol       = config.getOptional(SNMPV3_AUTH_PROTOCOL).orElse(null);
+        final String privProtocol       = config.getOptional(SNMPV3_PRIV_PROTOCOL).orElse(null);
         final String pollMode           = config.get(SNMP_POLL_MODE);
         final String oidsString         = config.get(OIDS);
         final List<String> oids         = Arrays.asList(oidsString.split(",")).stream()
@@ -149,6 +194,18 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
 
             String[] parts = target.split(":");
             if (parts.length != 2) {
+
+                LOG.error("{} SnmpDynamicTableSourceFactory: createDynamicTableSource(): Invalid target format. Expected 'host:port', but got {}",
+                    Thread.currentThread().getName(),
+                    target
+                );
+
+                System.out.println("\n SnmpDynamicTableSourceFactory: createDynamicTableSource()" 
+                    + " Invalid target format. Expected 'host:port', but got. " + target
+                    + " for Thread "                                            + Thread.currentThread().getName()
+                    + " (Direct System.out)"
+                );
+
                 throw new IllegalArgumentException("Invalid target format. Expected 'host:port', but got: " + target);
             }
             
@@ -177,16 +234,28 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
                 snmpAgentInfo.getHost(),
                 snmpAgentInfo.getPort()
             );
+
+            System.out.println("\n SnmpDynamicTableSourceFactory: createDynamicTableSource()" 
+                + " Created SnmpAgentInfo for: " + snmpAgentInfo.getHost() + ":" + snmpAgentInfo.getPort()
+                + " for Thread "                 + Thread.currentThread().getName()
+                + " (Direct System.out)"
+            );
         }
 
         if (snmpAgentInfoList.isEmpty()) {
-            throw new IllegalArgumentException("No valid SNMP agent targets provided.");
-        }
 
-        System.out.println("SnmpDynamicTableSourceFactory: createDynamicTableSource(): Called" 
-            + " for Thread "
-            + Thread.currentThread().getName()
-        );
+            LOG.error("{} SnmpDynamicTableSourceFactory: createDynamicTableSource(): No valid SNMP targets agent provided.",
+                Thread.currentThread().getName()
+            );
+
+            System.out.println("\n SnmpDynamicTableSourceFactory: createDynamicTableSource()" 
+                + " No valid SNMP targets agent provided."
+                + " for Thread " + Thread.currentThread().getName()
+                + " (Direct System.out)"
+            );
+
+            throw new IllegalArgumentException("No valid SNMP targets agent provided.");
+        }
 
         // Return the DynamicTableSource implementation
         // This line needs to be updated in SnmpDynamicTableSource.java to accept a List<SnmpAgentInfo>
