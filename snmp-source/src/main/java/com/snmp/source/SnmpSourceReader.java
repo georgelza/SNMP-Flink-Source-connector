@@ -60,6 +60,7 @@ import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
+import org.apache.flink.table.data.TimestampData;
 import org.apache.flink.table.types.DataType;
 import org.apache.flink.table.types.logical.LogicalType;
 import org.apache.flink.table.types.logical.RowType;
@@ -125,7 +126,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
     private final java.util.concurrent.atomic.AtomicBoolean noMoreSplits;
 
     @Nullable
-    private SnmpSourceSplit currentSplit;
+    private SnmpSourceSplit         currentSplit;
 
     @Nullable
     private SnmpAgentInfo           currentAgentInfo;
@@ -338,11 +339,21 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             return InputStatus.NOTHING_AVAILABLE;
         
         } catch (Exception e) {
-            LOG.error("{} SnmpSourceReader: Critical error in pollNext: {}. {}", 
+
+            LOG.error("{} SnmpSourceReader: pollNext() Critical error in pollNext: {}. Full Stack Trace: {}",
                 Thread.currentThread().getName(),
-                e.getMessage(), 
-                e
+                e.getMessage(),
+                e // This should print the stack trace, but Flink might suppress deep causes
             );
+
+            System.out.println("SnmpSourceReader: pollNext()"
+                + " Critical error in pollNext: " + e.getMessage()
+                + " Full Stack Trace: " + e
+                + " for Thread " + Thread.currentThread().getName()
+                + " (Direct System.out)"
+            );
+
+            e.printStackTrace(System.err); // Force print to stderr for visibility
 
             // On critical error, fail the availability future and propagate the error.
             availabilityFuture.completeExceptionally(e);
@@ -350,7 +361,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             // Propagate the error by throwing a RuntimeException
             throw new RuntimeException("Critical error in SNMP Source Reader.", e);
         }
-    }
+    } // pollNext
 
     @Override
     public List<SnmpSourceSplit> snapshotState(long checkpointId) {
@@ -368,7 +379,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         }
         state.addAll(splits); // Add any pending splits
         return state;
-    }
+    } // snapshotState
 
     @Override
     public void close() throws Exception {
@@ -380,7 +391,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         fetchedRecords.clear();
         currentSplit = null;
         currentAgentInfo = null;
-    }
+    }  // close
 
     @Override
     public void addSplits(List<SnmpSourceSplit> newSplits) {
@@ -389,7 +400,15 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             newSplits.size()
         );
 
+        System.out.println("SnmpSourceReader: addSplits()" 
+            + " called with " + newSplits.size()
+            + " new splits: "
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         splits.addAll(newSplits);
+
         // If no split is currently assigned, try to assign one now
         if (currentAgentInfo == null) {
             assignNextSplit();
@@ -397,7 +416,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
         availabilityFuture.complete(null);                  // Signal that new splits are available
         availabilityFuture = new CompletableFuture<>();           // Reset for next signal
-    }
+    } // addSplits
 
     private void assignNextSplit() {
         lock.lock();
@@ -412,6 +431,13 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                     currentSplit.splitId(),
                     currentAgentInfo.getHost(),
                     currentAgentInfo.getPort()
+                );
+                
+                System.out.println("SnmpSourceReader: assignNextSplit()" 
+                    + " Assigned new split: "   + currentSplit.splitId()
+                    + " with agent "            + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
+                    + " for Thread "            + Thread.currentThread().getName()
+                    + " (Direct System.out)"
                 );
 
             } else if (currentSplit != null) {
@@ -428,7 +454,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         } finally {
             lock.unlock();
         }
-    }
+    } // assignNextSplit
 
     @Override
     public void handleSourceEvents(SourceEvent sourceEvent) {
@@ -438,7 +464,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             sourceEvent
         );
         // No custom source events expected for now.
-    }
+    } // handleSourceEvents
 
     private void pollSnmpAgent(SnmpAgentInfo agentInfo, Collector<RowData> collector) {
 
@@ -661,7 +687,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 }
             }
         }
-    }
+    } // pollSnmpAgent
 
     private <T extends org.snmp4j.Target<Address>> void sendSnmpRequest(Snmp snmp, T target, SnmpAgentInfo agentInfo, Collector<RowData> collector) throws IOException {
 
@@ -705,7 +731,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
             if (responseEvent != null && responseEvent.getResponse() != null) {
 
-                LOG.error("{} SnmpSourceReader: sendSnmpRequest(): SNMP GET response receive for Agent {}:{} Response: {}",
+                LOG.debug("{} SnmpSourceReader: sendSnmpRequest(): SNMP GET response receive for Agent {}:{} Response: {}",
                     Thread.currentThread().getName(), 
                     agentInfo.getHost(),
                     agentInfo.getPort(),
@@ -814,9 +840,10 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
             throw new IllegalArgumentException("Unsupported poll mode: " + agentInfo.getPollMode());
         }
-    }
+    } // sendSnmpRequest
 
     private void processVariableBinding(String deviceId, int port, VariableBinding vb, Collector<RowData> collector) {
+
         String metricOid          = vb.getOid().toString();
         String metricValue        = vb.getVariable().toString();
         String dataType           = vb.getVariable().getSyntaxString(); // Get human-readable type
@@ -848,7 +875,8 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
         int fieldIndex = 0;
         for (RowType.RowField field : producedRowType.getFields()) {
-            String fieldName = field.getName();
+
+            String fieldName      = field.getName();
             LogicalType fieldType = field.getType();
 
             switch (fieldName) {
@@ -859,6 +887,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 case "metric_oid":
                     row.setField(fieldIndex, StringData.fromString(metricOid));
                     break;
+
                 case "metric_value":
                     row.setField(fieldIndex, StringData.fromString(metricValue));
                     break;
@@ -880,16 +909,17 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                     // For true TIMESTAMP(3) type, you'd use TimestampData.fromLocalDateTime(ts)
                     // and ensure the schema truly expects TIMESTAMP(3) and not VARCHAR.
                     
-                    row.setField(fieldIndex, StringData.fromString(ts.format(DATE_TIME_FORMATTER)));
+                    //row.setField(fieldIndex, TimestampData.fromLocalDateTime(ts));
+                    row.setField(fieldIndex, StringData.fromString(ts.toString()));
                     break;
 
-                case "PROC_TIME": 
-                    // Process time field, can be ignored or set to current processing time
-                    // Flink's SQL API typically handles PROCTIME() automatically.
-                    // If you need to set it here, it's usually `null` for source unless
-                    // it's a generated column from event time or a specific timestamp.
-                    row.setField(fieldIndex, null); // Or TimestampData.fromLocalDateTime(LocalDateTime.now());
-                    break;
+                // case "PROC_TIME": 
+                //     // Process time field, can be ignored or set to current processing time
+                //     // Flink's SQL API typically handles PROCTIME() automatically.
+                //     // If you need to set it here, it's usually `null` for source unless
+                //     // it's a generated column from event time or a specific timestamp.
+                //     row.setField(fieldIndex, null); // Or TimestampData.fromLocalDateTime(LocalDateTime.now());
+                //     break;
 
                 default:
                     row.setField(fieldIndex, null); // Set null for any unmapped fields
@@ -898,7 +928,41 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             fieldIndex++;
         }
         collector.collect(row);
-    }
+
+        if (LOG.isDebugEnabled()) {
+
+            StringBuilder rowDataLog = new StringBuilder();
+            rowDataLog.append(Thread.currentThread().getName())
+                      .append(" SnmpSourceReader: processVariableBinding() Successfully collected RowData. Fields: [");
+            
+            GenericRowData genericRow = (GenericRowData) row; // Cast to GenericRowData
+
+            for (int i = 0; i < producedRowType.getFieldCount(); i++) {
+                String fieldName = producedRowType.getFields().get(i).getName();
+                Object fieldValue = genericRow.getField(i);
+                
+                // Convert Flink internal types to readable strings for logging
+                if (fieldValue instanceof StringData) {
+                    fieldValue = ((StringData) fieldValue).toString();
+
+                } else if (fieldValue instanceof TimestampData) {
+                    fieldValue = ((TimestampData) fieldValue).toLocalDateTime().toString();
+
+                }
+                // Add more type handling if needed (e.g., for IntegerData, LongData etc.)
+
+                rowDataLog.append(fieldName).append("=").append(fieldValue);
+                if (i < producedRowType.getFieldCount() - 1) {
+                    rowDataLog.append(", ");
+                }
+            }
+            rowDataLog.append("]");
+
+            LOG.debug(rowDataLog.toString());
+            System.out.println(rowDataLog.toString());
+
+        }        
+    } // processVariableBinding
 
     @Override
     public CompletableFuture<Void> isAvailable() {
@@ -909,6 +973,18 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
         // If there are fetched records, we are immediately available
         if (fetchedRecords.peek() != null) {
+
+            LOG.debug("{} SnmpSourceReader: CompletableFuture() fetchedRecords: {}",
+                Thread.currentThread().getName(), 
+                fetchedRecords.peek()
+            );
+
+            System.out.println("SnmpSourceReader: CompletableFuture()" 
+                + " fetchedRecords: "   + fetchedRecords.peek()
+                + " for Thread "        + Thread.currentThread().getName()
+                + " (Direct System.out)"
+            );
+
             return CompletableFuture.completedFuture(null);
 
         }

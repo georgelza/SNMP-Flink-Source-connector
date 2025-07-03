@@ -60,12 +60,12 @@ public class SnmpData implements Serializable {
         String instanceIdentifier,
         LocalDateTime ts)
     {
-        this.deviceId = deviceId;
-        this.metricOid = metricOid;
-        this.metricValue = metricValue;
-        this.dataType = dataType;
+        this.deviceId           = deviceId;
+        this.metricOid          = metricOid;
+        this.metricValue        = metricValue;
+        this.dataType           = dataType;
         this.instanceIdentifier = instanceIdentifier;
-        this.ts = ts;
+        this.ts                 = ts;
     }
 
     // Getters and Setters for all fields (omitted for brevity)
