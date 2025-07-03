@@ -64,6 +64,7 @@ public class SnmpPollingJob {
                 + " table: "    + tableToSelectFromName
                 + " for Thread "
                 + Thread.currentThread().getName()
+                + " (Direct System.out)"
             );
 
             LOG.debug("{}: Arguments received: Catalog='{}', Database='{}', Table to Select From='{}'",
