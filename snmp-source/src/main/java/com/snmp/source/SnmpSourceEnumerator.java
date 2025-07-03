@@ -73,6 +73,14 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
             snmpAgentInfoList.size(),
             pendingSplits.size()
         );
+
+        System.out.println("SnmpSourceEnumerator:"
+            + " Initialized with:"  + snmpAgentInfoList.size()
+            + " agents, creating"   + pendingSplits.size()
+            + " splits."
+            + " for Thread: "       + Thread.currentThread().getName() 
+            + " (Direct System.out)"
+        );
     }
 
     /**
@@ -82,8 +90,8 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
      * @param checkpointedState The list of splits saved during the last checkpoint.
      */
     public SnmpSourceEnumerator(SplitEnumeratorContext<SnmpSourceSplit> context, List<SnmpSourceSplit> checkpointedState) {
-        this.context = context;
-        // When restoring, all splits from checkpointedState are treated as pending.
+
+        this.context        = context;
         this.pendingSplits  = new ConcurrentLinkedQueue<>(checkpointedState);
         this.assignedSplits = new HashMap<>();
         
@@ -104,10 +112,17 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
         LOG.debug("{} SnmpSourceEnumerator: start() called.",
             Thread.currentThread().getName()
         );
+
+        System.out.println("SnmpSourceEnumerator: start() called"
+            + " for Thread: " + Thread.currentThread().getName() 
+            + " (Direct System.out)"
+        );
+    
     }
 
     @Override
     public void handleSplitRequest(int subtaskID, @Nullable String requesterHostname) {
+
         LOG.debug("{} SnmpSourceEnumerator: handleSplitRequest() from subtask {} (hostname: {}).",
             Thread.currentThread().getName(),
             subtaskID,
@@ -118,6 +133,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
         SnmpSourceSplit split = pendingSplits.poll();
 
         if (split != null) {
+
             // Create an ArrayList for the splits to assign
             List<SnmpSourceSplit> splitsForAssignment = new ArrayList<>();
             splitsForAssignment.add(split);
@@ -126,6 +142,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
             context.assignSplits(new SplitsAssignment<SnmpSourceSplit>(Collections.singletonMap(subtaskID, splitsForAssignment)));
             
             assignedSplits.computeIfAbsent(subtaskID, k -> new ArrayList<>()).add(split);
+
             LOG.debug("{} SnmpSourceEnumerator: Assigned split '{}' to reader {}. Remaining pending splits: {}.",
                 Thread.currentThread().getName(),
                 split.splitId(),
@@ -143,6 +160,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
 
     @Override
     public void handleSourceEvent(int subtaskID, SourceEvent sourceEvent) {
+
         LOG.debug("{} SnmpSourceEnumerator: handleSourceEvent() from subtask {} with event {}.",
             Thread.currentThread().getName(),
             subtaskID,
@@ -153,6 +171,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
 
     @Override
     public void addSplitsBack(List<SnmpSourceSplit> splits, int subtaskID) {
+
         LOG.info("{} SnmpSourceEnumerator: addSplitsBack() called for subtask {}. Adding {} splits back to pending.",
             Thread.currentThread().getName(),
             subtaskID,
@@ -160,6 +179,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
         );
 
         pendingSplits.addAll(splits);
+
         // Also remove them from assignedSplits map for the given subtask
         if (assignedSplits.containsKey(subtaskID)) {
             assignedSplits.get(subtaskID).removeAll(splits);
@@ -168,6 +188,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
 
     @Override
     public void addReader(int subtaskID) {
+
         LOG.debug("{} SnmpSourceEnumerator: addReader() called for subtask {}. (Thread: {})",
             Thread.currentThread().getName(),
             subtaskID,
@@ -179,6 +200,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
 
     @Override
     public List<SnmpSourceSplit> snapshotState(long checkpointId) throws IOException {
+
         LOG.info("{} SnmpSourceEnumerator: snapshotState() called for checkpointId {}. Total pending splits: {}. Total assigned splits: {}.",
             Thread.currentThread().getName(),
             checkpointId,
@@ -195,6 +217,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
 
     @Override
     public void close() throws IOException {
+        
         LOG.debug("{} SnmpSourceEnumerator: close() called.",
             Thread.currentThread().getName()
         );

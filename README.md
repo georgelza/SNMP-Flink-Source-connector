@@ -22,22 +22,9 @@ ToDo: Need to come up with solution how to handle inbound SNMP Traps.
 This can be done by either running the below SQL statement against the created table or by submitting the below job in the job manager.
 
 ```SQL
-Select * from hive_catalog.snmp.snmp_poll_data;
+Select * from default_catalog.snmp.snmp_poll_data#;
 ```
 
-OR
-NOTE SURE about the next as just pulling data means nothing, and well to use it we need to select from it, which instantiates the job anyhow.
-The table parameters define the source agent to fetch data from. **MOST LIKELY TO REMOVE THE BELOW.**
-
-```SHELL
-/opt/flink/bin/flink run \
-  --detached \
-  -c com.snmp.job.SnmpPollingJob \
-  /opt/flink/lib/flink/snmp-source-1.0-SNAPSHOT.jar \
-  hive_catalog \
-  snmp \
-  snmp_poll_data
-```
 
 
 ## Example commands for Testing
@@ -78,12 +65,3 @@ George
 [George on Linkedin](https://www.linkedin.com/in/george-leonard-945b502/)
 
 [George on Medium](https://medium.com/@georgelza)
-
-
-
-mvn install:install-file \
-  -Dfile=snmp4j-3.7.0.jar \
-  -DgroupId=org.snmp4j \
-  -DartifactId=snmp4j \
-  -Dversion=3.7.0 \
-  -Dpackaging=jar

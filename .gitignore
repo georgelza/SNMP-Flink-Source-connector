@@ -26,11 +26,8 @@
 .DS_Store
 .idea/
 .vscode/
-venv/*
 
-
+devlab0/data
 snmp-mib-loader/target
 snmp-source/target
 
-misc/*
-old/*

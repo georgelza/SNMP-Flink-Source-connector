@@ -1,0 +1,101 @@
+# if our project is called and network is called pipeline
+#
+# docker-compose -p pipeline up -d --build
+# or
+# export COMPOSE_PROJECT_NAME=pipeline
+# docker-compose up -d --build
+#
+# inspect network: docker network inspect pipeline
+#
+
+configs:
+  flink-conf:
+    file: ./conf/config.yaml
+
+  log4j:
+    file: ./conf/log4j.properties
+  log4j-console:
+    file: ./conf/log4j-console.properties
+  log4j-session:
+    file: ./conf/log4j-session.properties
+
+
+services:
+
+  # begin Flink cluster
+  jobmanager:
+    image: flink:1.20.1-scala_2.12-java17
+    hostname: jobmanager
+    container_name: jobmanager
+    ports:
+      - 8083:8081
+    environment:
+      - ENV_ROOTLOG_LEVEL=DEBUG
+      - ENV_FLINKLOG_LEVEL=DEBUG
+      - ENV_SNMPLOG_LEVEL=DEBUG      
+
+    volumes:
+      - ./creFlinkFlows:/sql
+
+      - ./data/flink/logs:/opt/flink/log
+      - ./data/flink/checkpoints:/opt/flink/checkpoints
+      - ./data/flink/rocksdb:/opt/flink/rocksdb
+      - ./data/flink/jm/tmp:/tmp
+      - ./conf/mibs:/mibs
+
+      - ./conf/flink/lib/flink:/opt/flink/lib/flink
+
+    configs:
+      - source: flink-conf
+        target: /opt/flink/conf/config.yaml
+
+      - source: log4j
+        target: /opt/flink/conf/log4j.properties
+      - source: log4j-console
+        target: /opt/flink/conf/log4j-console.properties
+      - source: log4j-session
+        target: /opt/flink/conf/log4j-session.properties
+        
+    command: jobmanager
+
+  taskmanager:
+    image: flink:1.20.1-scala_2.12-java17
+    depends_on:
+      - jobmanager
+    deploy:
+      replicas: 2
+    environment:
+      - ENV_ROOTLOG_LEVEL=DEBUG
+      - ENV_FLINKLOG_LEVEL=DEBUG
+      - ENV_SNMPLOG_LEVEL=DEBUG      
+
+    volumes:
+      - ./data/flink/logs:/opt/flink/log
+      - ./data/flink/checkpoints:/opt/flink/checkpoints
+      - ./data/flink/rocksdb:/opt/flink/rocksdb
+      - ./data/flink/tm/tmp:/tmp
+      - ./conf/mibs:/mibs
+
+      - ./conf/flink/lib/flink:/opt/flink/lib/flink
+
+    configs:
+      - source: flink-conf
+        target: /opt/flink/conf/config.yaml
+
+      - source: log4j
+        target: /opt/flink/conf/log4j.properties
+      - source: log4j-console
+        target: /opt/flink/conf/log4j-console.properties
+      - source: log4j-session
+        target: /opt/flink/conf/log4j-session.properties
+
+    command: taskmanager
+  # end Flink cluster
+
+
+# Without a network explicitly defined, you hit this Hive/Thrift error
+# java.net.URISyntaxException Illegal character in hostname
+# https://github.com/TrivadisPF/platys-modern-data-platform/issues/231
+networks:
+  default:
+    name: ${COMPOSE_PROJECT_NAME}

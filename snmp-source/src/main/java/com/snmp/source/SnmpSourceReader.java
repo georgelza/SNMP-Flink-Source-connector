@@ -156,8 +156,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         );
 
         System.out.println("SnmpSourceReader: SNMP Source Reader initialized, called" 
-            + " for Thread: "
-            + Thread.currentThread().getName() 
+            + " for Thread: " + Thread.currentThread().getName() 
             + " (Direct System.out)"
         );
     }
@@ -273,22 +272,18 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 );
 
                 System.out.println("SnmpSourceReader: pollNext(): Polling" 
-                    + " Agent: "
-                    + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
-                    + " for Thread "
-                    + Thread.currentThread().getName()
+                    + " Agent: "    + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
+                    + " for Thread "+ Thread.currentThread().getName()
                     + " (Direct System.out)"
                 );
 
                 pollSnmpAgent(currentAgentInfo, recordCollector);
                 lastPollTime = System.currentTimeMillis();
             
-                System.out.println("SnmpSourceReader: pollNext(): Finished polling" 
-                    + " " + lastPollTime
-                    + " Agent: "
-                    + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
-                    + " for Thread "
-                    + Thread.currentThread().getName()
+                System.out.println("SnmpSourceReader: pollNext(): "
+                    + " Finished polling "  + lastPollTime
+                    + " Agent: "            + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
+                    + " for Thread "        + Thread.currentThread().getName()
                     + " (Direct System.out)"
                 );
 
@@ -448,10 +443,8 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
     private void pollSnmpAgent(SnmpAgentInfo agentInfo, Collector<RowData> collector) {
 
         System.out.println("SnmpSourceReader: pollSnmpAgent(): Called" 
-            + " Agent: "
-            + agentInfo.getHost() + ":" + agentInfo.getPort()
-            + " for Thread "
-            + Thread.currentThread().getName()
+            + " Agent: "     + agentInfo.getHost() + ":" + agentInfo.getPort()
+            + " for Thread " + Thread.currentThread().getName()
             + " (Direct System.out)"
         );
 
@@ -474,10 +467,8 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 );
                 
                 System.out.println("SnmpSourceReader: pollSnmpAgent(): SNMPv1 Configuring" 
-                    + " Agent: "
-                    + agentInfo.getHost() + ":" + agentInfo.getPort()
-                    + " for Thread "
-                    + Thread.currentThread().getName()
+                    + " Agent: "     + agentInfo.getHost() + ":" + agentInfo.getPort()
+                    + " for Thread " + Thread.currentThread().getName()
                     + " (Direct System.out)"
                 );
 
@@ -681,13 +672,10 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             agentInfo.getPort()
         );
 
-        System.out.println("SnmpSourceReader: sendSnmpRequest(): "
-            + agentInfo.getPollMode()
-            + " Called for" 
-            + " Agent: "
-            + agentInfo.getHost() + ":" + agentInfo.getPort()
-            + " for Thread "
-            + Thread.currentThread().getName()
+        System.out.println("SnmpSourceReader: sendSnmpRequest():"
+            + " Poll Mode "         + agentInfo.getPollMode()
+            + " Called for Agent: " + agentInfo.getHost() + ":" + agentInfo.getPort()
+            + " for Thread "        + Thread.currentThread().getName()
             + " (Direct System.out)"
         );
 
@@ -702,10 +690,9 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 oidsToPoll
             );
 
-            System.out.println("SnmpSourceReader: sendSnmpRequest() Performing SNMP GET for OIDs: "
-                + oidsToPoll
-                + " for Thread "
-                + Thread.currentThread().getName()
+            System.out.println("SnmpSourceReader: sendSnmpRequest()"
+                + " Performing SNMP GET for OIDs: " + oidsToPoll
+                + " for Thread "                    + Thread.currentThread().getName()
                 + " (Direct System.out)"
             );
 
@@ -761,10 +748,9 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 oidsToPoll
             );
 
-            System.out.println("SnmpSourceReader: sendSnmpRequest() Performing SNMP WALK for OIDs: "
-                + oidsToPoll
-                + " for Thread "
-                + Thread.currentThread().getName()
+            System.out.println("SnmpSourceReader: sendSnmpRequest()" 
+                + " Performing SNMP WALK for OIDs: " + oidsToPoll
+                + " for Thread "                     + Thread.currentThread().getName()
                 + " (Direct System.out)"
             );
 
@@ -825,7 +811,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 Thread.currentThread().getName(),
                 agentInfo.getPollMode()
             );
-            
+
             throw new IllegalArgumentException("Unsupported poll mode: " + agentInfo.getPollMode());
         }
     }

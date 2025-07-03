@@ -58,7 +58,7 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
      */
     public SnmpSource(DataType producedDataType, List<SnmpAgentInfo> snmpAgentInfoList) {
 
-        this.producedDataType = Objects.requireNonNull(producedDataType, "Produced data type cannot be null.");
+        this.producedDataType  = Objects.requireNonNull(producedDataType, "Produced data type cannot be null.");
         this.snmpAgentInfoList = Objects.requireNonNull(snmpAgentInfoList, "SNMP agent info list cannot be null.");
 
         if (snmpAgentInfoList.isEmpty()) {
@@ -69,6 +69,14 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
             Thread.currentThread().getName(),
             snmpAgentInfoList.size()
         );
+
+        System.out.println("SnmpSource: Initialized with " 
+            + snmpAgentInfoList.size()
+            + " agents"
+            + " for Thread: " + Thread.currentThread().getName() 
+            + " (Direct System.out)"
+        );
+
     }
 
     /**
@@ -82,6 +90,11 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
 
         LOG.debug("{} SnmpSource: createReader() called.",
             Thread.currentThread().getName()
+        );
+
+        System.out.println("SnmpSource: createReader() called" 
+            + " for Thread: " + Thread.currentThread().getName() 
+            + " (Direct System.out)"
         );
 
         return new SnmpSourceReader(readerContext, producedDataType);

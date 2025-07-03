@@ -38,10 +38,9 @@ public class SnmpPollingJob {
 
     public static void main(String[] args) throws Exception {
 
-        System.out.println(
-            " SnmpPollingJob().Main() Method called."
-            + " for Thread "
-            + Thread.currentThread().getName()
+        System.out.println("SnmpPollingJob().Main() Method called."
+            + " for Thread " + Thread.currentThread().getName()
+            + " (Direct System.out)"
         );
         
 
@@ -57,8 +56,7 @@ public class SnmpPollingJob {
             tableToSelectFromName = args[2];
             fullTableName         = String.format("%s.%s.%s", catalogName, databaseName, tableToSelectFromName);
         
-            System.out.println(
-                " SnmpPollingJob().Main()"
+            System.out.println("SnmpPollingJob().Main()"
                 + " catalog: "  + catalogName
                 + " database: " + databaseName
                 + " table: "    + tableToSelectFromName
@@ -67,7 +65,7 @@ public class SnmpPollingJob {
                 + " (Direct System.out)"
             );
 
-            LOG.debug("{}: Arguments received: Catalog='{}', Database='{}', Table to Select From='{}'",
+            LOG.debug("{} SnmpPollingJob().Main(): Arguments received: Catalog='{}', Database='{}', Table to Select From='{}'",
                 Thread.currentThread().getName(),
                 catalogName,
                 databaseName,
@@ -75,7 +73,7 @@ public class SnmpPollingJob {
             );
 
         } else {
-            LOG.error("{}: ERROR: Insufficient arguments provided. Please provide Catalog Name, Database Name, and the Table Name to Select From.",
+            LOG.error("{} SnmpPollingJob().Main(): ERROR: Insufficient arguments provided. Please provide Catalog Name, Database Name, and the Table Name to Select From.",
                 Thread.currentThread().getName()
             );
 
@@ -104,7 +102,7 @@ public class SnmpPollingJob {
             );
             
         } catch (Exception e) {
-            LOG.error("{}: Failed to use catalog '{}' or database '{}'. Ensure it's correctly configured in Flink and necessary connector JARs are in Flink's lib directory. Error: {} {}",
+            LOG.error("{} SnmpPollingJob().Main(): Failed to use catalog '{}' or database '{}'. Ensure it's correctly configured in Flink and necessary connector JARs are in Flink's lib directory. Error: {} {}",
                 Thread.currentThread().getName(),
                 catalogName, 
                 databaseName, 
@@ -116,11 +114,17 @@ public class SnmpPollingJob {
         
         Table resultTable = tableEnv.from(tableToSelectFromName);
 
-        LOG.debug("{}: Starting Flink job to continuously read from {}...", 
+        LOG.debug("{} SnmpPollingJob().Main(): Starting Flink job to continuously read from {}...", 
             Thread.currentThread().getName(),   
             fullTableName
         );
         
+        System.out.println("SnmpPollingJob().Main():"
+            + " Starting Flink job to continuously read from" + fullTableName
+            + " for Thread "                                  + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         tableEnv.toDataStream(resultTable, Row.class).print();
 
         // Execute the Flink job. This will start the continuous reading and printing.

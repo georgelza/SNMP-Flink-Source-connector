@@ -20,7 +20,6 @@ build:
 	mvn clean package
 
 clean:
-	cd snmp-job; rm -rf target
-	cd snmp-job; rm dependency-reduced-pom.xml
+	cd snmp-source; rm dependency-reduced-pom.xml
 	cd snmp-source; rm -rf target
 	cd snmp-mib-loader; rm -rf target
