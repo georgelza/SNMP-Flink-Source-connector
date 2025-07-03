@@ -46,19 +46,11 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
         LOG.debug("{} SnmpDynamicTableSourceFactory: Static initializer called.",
             Thread.currentThread().getName()
         );
-        System.out.println("SnmpDynamicTableSourceFactory: Static initializer called for Thread: "
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
     }
 
     public SnmpDynamicTableSourceFactory() {
         LOG.debug("{} SnmpDynamicTableSourceFactory: Constructor called.",
             Thread.currentThread().getName()
-        );
-        System.out.println("SnmpDynamicTableSourceFactory: Constructor called for Thread: "
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
         );
     }
 
@@ -67,48 +59,38 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
         LOG.debug("{} SnmpDynamicTableSourceFactory: factoryIdentifier() called.",
             Thread.currentThread().getName()
         );
-        System.out.println("SnmpDynamicTableSourceFactory: factoryIdentifier() called for Thread: "
-            + Thread.currentThread().getName()
-            + " Returning 'snmp'. (Direct System.out)"
-        );
         return "snmp";
     }
 
     @Override
     public Set<ConfigOption<?>> requiredOptions() {
+
         LOG.debug("{} SnmpDynamicTableSourceFactory: requiredOptions() called.",
             Thread.currentThread().getName()
         );
-        System.out.println("SnmpDynamicTableSourceFactory: requiredOptions() called for Thread: "
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
+        
         final Set<ConfigOption<?>> options = new HashSet<>();
+        
         options.add(TARGET);
         options.add(OIDS);
         options.add(SNMP_POLL_MODE);
+        
         LOG.debug("{} SnmpDynamicTableSourceFactory: requiredOptions() Completed.",
             Thread.currentThread().getName()
         );
-        System.out.println("SnmpDynamicTableSourceFactory: requiredOptions(): "
-            + Thread.currentThread().getName()
-            + " Returning required options: "
-            + options
-            + " Completed (Direct System.out)"
-        );
+        
         return options;
     }
 
     @Override
     public Set<ConfigOption<?>> optionalOptions() {
+        
         LOG.debug("{} SnmpDynamicTableSourceFactory: optionalOptions() called.",
             Thread.currentThread().getName()
         );
-        System.out.println("SnmpDynamicTableSourceFactory: optionalOptions() called for Thread: "
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
+        
         final Set<ConfigOption<?>> options = new HashSet<>();
+        
         options.add(SNMP_VERSION);
         options.add(SNMP_COMMUNITY_STRING);
         options.add(SNMP_USERNAME);
@@ -116,15 +98,13 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
         options.add(SNMP_INTERVAL_SECONDS);
         options.add(SNMP_TIMEOUT_SECONDS);
         options.add(SNMP_RETRIES);
+        options.add(SNMPV3_AUTH_PROTOCOL);
+        options.add(SNMPV3_PRIV_PROTOCOL);
+        
         LOG.debug("{} SnmpDynamicTableSourceFactory: optionalOptions() Completed.",
             Thread.currentThread().getName()
         );
-        System.out.println("SnmpDynamicTableSourceFactory: optionalOptions(): "
-            + Thread.currentThread().getName()
-            + " Returning optional options: "
-            + options
-            + " Completed (Direct System.out)"
-        );
+        
         return options;
     }
 
@@ -134,10 +114,6 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
         LOG.debug("{} SnmpDynamicTableSourceFactory: createDynamicTableSource() called.",
             Thread.currentThread().getName()
         );
-        System.out.println("SnmpDynamicTableSourceFactory: createDynamicTableSource() called for Thread: "
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
 
         final FactoryUtil.TableFactoryHelper helper = FactoryUtil.createTableFactoryHelper(this, context);
 
@@ -146,23 +122,25 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
         final DataType producedDataType = context.getPhysicalRowDataType();
 
         // Extract common SNMP configuration options
-        final String snmpVersion = config.getOptional(SNMP_VERSION).orElse("SNMPv2c");
-        final String communityString = config.getOptional(SNMP_COMMUNITY_STRING).orElse("public");
-        final String userName = config.getOptional(SNMP_USERNAME).orElse(null);
-        final String password = config.getOptional(SNMP_PASSWORD).orElse(null);
-        final String pollMode = config.get(SNMP_POLL_MODE);
-        final String oidsString = config.get(OIDS);
-        final List<String> oids = Arrays.asList(oidsString.split(",")).stream()
-                                      .map(String::trim)
-                                      .filter(s -> !s.isEmpty())
-                                      .collect(Collectors.toList());
-        final int intervalSeconds = config.get(SNMP_INTERVAL_SECONDS);
-        final int timeoutSeconds = config.get(SNMP_TIMEOUT_SECONDS);
-        final int retries = config.get(SNMP_RETRIES);
+        final String snmpVersion        = config.getOptional(SNMP_VERSION).orElse("SNMPv2c");
+        final String communityString    = config.getOptional(SNMP_COMMUNITY_STRING).orElse("public");
+        final String userName           = config.getOptional(SNMP_USERNAME).orElse(null);
+        final String password           = config.getOptional(SNMP_PASSWORD).orElse(null);
+        final String authProtocol       = config.get(SNMPV3_AUTH_PROTOCOL);
+        final String privProtocol       = config.get(SNMPV3_PRIV_PROTOCOL);
+        final String pollMode           = config.get(SNMP_POLL_MODE);
+        final String oidsString         = config.get(OIDS);
+        final List<String> oids         = Arrays.asList(oidsString.split(",")).stream()
+                                            .map(String::trim)
+                                            .filter(s -> !s.isEmpty())
+                                            .collect(Collectors.toList());
+        final int intervalSeconds       = config.get(SNMP_INTERVAL_SECONDS);
+        final int timeoutSeconds        = config.get(SNMP_TIMEOUT_SECONDS);
+        final int retries               = config.get(SNMP_RETRIES);
 
         // Parse multiple targets
         final String targets = config.get(TARGET);
-        List<SnmpAgentInfo> snmpAgentInfoList = new ArrayList<>(); // Corrected to SnmpAgentInfo (singular)
+        List<SnmpAgentInfo> snmpAgentInfoList = new ArrayList<>();
         for (String target : targets.split(",")) {
             target = target.trim();
             if (target.isEmpty()) {
@@ -182,6 +160,8 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
                     communityString,
                     userName,
                     password,
+                    authProtocol, 
+                    privProtocol,
                     pollMode,
                     oids,
                     intervalSeconds,
@@ -189,16 +169,11 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
                     retries
             );
             snmpAgentInfoList.add(snmpAgentInfo);
+            
             LOG.debug("{} SnmpDynamicTableSourceFactory: Created SnmpAgentInfo for {}:{}",
                 Thread.currentThread().getName(),
                 snmpAgentInfo.getHost(),
                 snmpAgentInfo.getPort()
-            );
-            System.out.println("SnmpDynamicTableSourceFactory: Created SnmpAgentInfo: "
-                + snmpAgentInfo.getHost()
-                + ":"
-                + snmpAgentInfo.getPort()
-                + " (Direct System.out)"
             );
         }
 

@@ -1,6 +1,6 @@
 /* //////////////////////////////////////////////////////////////////////////////////////////////////////
-/ 
-/ 
+/
+/
 /       Project         :   Apache Flink SNMP Source connector
 /
 /       File            :   SnmpSource.java
@@ -32,7 +32,7 @@ import org.apache.flink.table.types.DataType;
 
 import java.util.List;
 import java.util.Objects;
-import javax.annotation.Nullable;
+import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,128 +43,111 @@ import org.slf4j.LoggerFactory;
  */
 public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSourceSplit>> {
 
+    private static final long serialVersionUID = 1L;
+
     private static final Logger LOG = LoggerFactory.getLogger(SnmpSource.class);
 
     private final DataType producedDataType;
     private final List<SnmpAgentInfo> snmpAgentInfoList;
 
-    static {
-        LOG.debug("{} SnmpSource: Static initializer called.",
-            Thread.currentThread().getName()
-        );
-
-        // System.out.println("SnmpSource: Static initializer called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-    }
-
     /**
-     * Constructor for SnmpSource.
-     * @param producedDataType The {@link DataType} that this source will produce.
-     * @param snmpAgentInfoList A list of {@link SnmpAgentInfo} objects, each representing an SNMP agent
-     * that needs to be polled.
+     * Constructs a new SnmpSource.
+     *
+     * @param producedDataType  The data type of the records produced by this source.
+     * @param snmpAgentInfoList A list of SNMP agent configurations to poll.
      */
     public SnmpSource(DataType producedDataType, List<SnmpAgentInfo> snmpAgentInfoList) {
-              
-        LOG.debug("{} SnmpSource: Constructor called. Number of agents: {}.",
+        this.producedDataType = Objects.requireNonNull(producedDataType, "Produced data type cannot be null.");
+        this.snmpAgentInfoList = Objects.requireNonNull(snmpAgentInfoList, "SNMP agent info list cannot be null.");
+
+        if (snmpAgentInfoList.isEmpty()) {
+            throw new IllegalArgumentException("SNMP agent info list cannot be empty.");
+        }
+
+        LOG.debug("{} SnmpSource: Initialized with {} SNMP agents. (Thread: {})",
             Thread.currentThread().getName(),
-            snmpAgentInfoList.size()
-        );
-
-        // System.out.println("SnmpSource: Constructor called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " Number of agents: "
-        //     + snmpAgentInfoList.size()
-        //     + " (Direct System.out)"
-        // );
-
-        this.producedDataType   = producedDataType;
-        this.snmpAgentInfoList  = snmpAgentInfoList;
-    }
-
-    @Override
-    public Boundedness getBoundedness() {
-
-        LOG.debug("{} SnmpSource: getBoundedness() called. Returning UNBOUNDED.",
+            snmpAgentInfoList.size(),
             Thread.currentThread().getName()
         );
-
-        // System.out.println("SnmpSource: getBoundedness() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
-        // This source is unbounded as it continuously polls SNMP agents.
-        return Boundedness.CONTINUOUS_UNBOUNDED;
     }
 
     /**
-     * Creates a {@link SourceReader} for the given reader context.
+     * Creates a {@link SourceReader} for the SNMP source.
+     *
      * @param readerContext The context for the source reader.
-     * @return A new {@link SnmpSourceReader} instance.
+     * @return A new instance of {@link SnmpSourceReader}.
      */
     @Override
     public SourceReader<RowData, SnmpSourceSplit> createReader(SourceReaderContext readerContext) {
-
-        LOG.debug("{} SnmpSource: createReader() called.",
+        LOG.debug("{} SnmpSource: createReader() called. (Thread: {})",
             Thread.currentThread().getName()
         );
-
-        // System.out.println("SnmpSource: createReader() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
-        // Create and return an instance of your SnmpSourceReader
         return new SnmpSourceReader(readerContext, producedDataType);
     }
 
     /**
-     * Creates a {@link SplitEnumerator} for this source.
+     * Creates a {@link SplitEnumerator} for the SNMP source.
+     * This method is called during job initialization.
      *
      * @param enumContext The context for the split enumerator.
-     * @param currentEnumeratorCheckpoint The current checkpointed state of the enumerator, or null if no checkpoint.
-     * @return A new {@link SnmpSourceSplitEnumerator} instance.
+     * @return A new instance of {@link SnmpSourceEnumerator}.
+     */
+    @Override
+    public SplitEnumerator<SnmpSourceSplit, List<SnmpSourceSplit>> createEnumerator(
+            SplitEnumeratorContext<SnmpSourceSplit> enumContext) {
+        LOG.debug("{} SnmpSource: createEnumerator() called for initial setup. (Thread: {})",
+            Thread.currentThread().getName()
+        );
+        // Corrected: Added 'true' to differentiate this constructor from the restore constructor
+        return new SnmpSourceEnumerator(enumContext, snmpAgentInfoList, true);
+    }
+
+    /**
+     * Restores a {@link SplitEnumerator} from checkpointed state.
+     * This method is called when a job is restored from a checkpoint.
+     *
+     * @param enumContext The context for the split enumerator.
+     * @param checkpointedState The state restored from the checkpoint.
+     * @return A new instance of {@link SnmpSourceEnumerator}.
+     * @throws IOException If an I/O error occurs during state restoration.
      */
     @Override
     public SplitEnumerator<SnmpSourceSplit, List<SnmpSourceSplit>> restoreEnumerator(
             SplitEnumeratorContext<SnmpSourceSplit> enumContext,
-            List<SnmpSourceSplit> currentEnumeratorCheckpoint) throws Exception { // Add throws Exception
-
-        LOG.debug("{} SnmpSource: restoreEnumerator() called. Restoring {} splits.",
+            List<SnmpSourceSplit> checkpointedState) throws IOException {
+        LOG.debug("{} SnmpSource: restoreEnumerator() called with {} splits. (Thread: {})",
             Thread.currentThread().getName(),
-            currentEnumeratorCheckpoint != null ? currentEnumeratorCheckpoint.size() : 0
+            checkpointedState.size()
         );
-
-        // System.out.println("SnmpSource: createEnumerator() called for Thread: " 
-        //     + Thread.currentThread().getName() 
-        //     + " (Direct System.out)"
-        // );
-
-        // The currentEnumeratorCheckpoint is null on initial creation,
-        // and Flink handles passing the restored checkpoint state to the constructor
-        // during recovery/restart, which your enumerator constructor already handles.
-        return new SnmpSourceEnumerator(enumContext, producedDataType, snmpAgentInfoList, currentEnumeratorCheckpoint);
+        // This constructor assumes SnmpSourceEnumerator can take the checkpointed state for restoration.
+        return new SnmpSourceEnumerator(enumContext, checkpointedState);
     }
 
-  
     /**
-     * Returns the serializer for the splits.
+     * Returns the boundedness of the source (e.g., Bounded or Unbounded).
+     * For an SNMP polling source, this will typically be {@link Boundedness#CONTINUOUS_UNBOUNDED}.
      *
-     * @return A serializer for {@link SnmpSourceSplit} objects.
+     * @return The boundedness of the source.
+     */
+    @Override
+    public Boundedness getBoundedness() {
+        LOG.debug("{} SnmpSource: getBoundedness() called. Returning CONTINUOUS_UNBOUNDED. (Thread: {})",
+            Thread.currentThread().getName()
+        );
+        return Boundedness.CONTINUOUS_UNBOUNDED;
+    }
+
+    /**
+     * Returns the serializer for {@link SnmpSourceSplit} instances.
+     *
+     * @return A serializer for splits.
      */
     @Override
     public SimpleVersionedSerializer<SnmpSourceSplit> getSplitSerializer() {
 
-        LOG.debug("{} SnmpSource: getSplitSerializer() called.",
+        LOG.debug("{} SnmpSource: getSplitSerializer() called. (Thread: {})",
             Thread.currentThread().getName()
         );
-
-        // System.out.println("SnmpSource: getSplitSerializer() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
 
         // Return your custom serializer for SnmpSourceSplit
         return new SnmpSourceSplitSerializer();
@@ -178,17 +161,11 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     @Override
     public SimpleVersionedSerializer<List<SnmpSourceSplit>> getEnumeratorCheckpointSerializer() {
 
-        LOG.debug("{} SnmpSource: getEnumeratorCheckpointSerializer() called.",
+        LOG.debug("{} SnmpSource: getEnumeratorCheckpointSerializer() called. (Thread: {})",
             Thread.currentThread().getName()
         );
 
-        // System.out.println("SnmpSource: getEnumeratorCheckpointSerializer() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
         // Similarly, use a custom serializer for the enumerator's checkpointed state.
-        // You need to implement SnmpSourceSplitListSerializer.
         return new SnmpSourceSplitListSerializer();
     }
 
@@ -206,7 +183,6 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
 
     @Override
     public int hashCode() {
-
         // Calculate hash code based on producedDataType and the list of SnmpAgentInfo
         return Objects.hash(producedDataType, snmpAgentInfoList);
     }

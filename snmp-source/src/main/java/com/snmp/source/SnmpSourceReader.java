@@ -1,6 +1,6 @@
 /* //////////////////////////////////////////////////////////////////////////////////////////////////////
-/
-/
+/ 
+/ 
 /       Project         :   Apache Flink SNMP Source connector
 /
 /       File            :   SnmpSourceReader.java
@@ -35,26 +35,35 @@
 package com.snmp.source;
 
 import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Deque;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 
-import org.apache.flink.core.io.InputStatus;
+import org.apache.flink.api.connector.source.SourceEvent;
 import org.apache.flink.api.connector.source.ReaderOutput;
 import org.apache.flink.api.connector.source.SourceReader;
 import org.apache.flink.api.connector.source.SourceReaderContext;
+import org.apache.flink.core.io.InputStatus;
 import org.apache.flink.table.data.GenericRowData;
 import org.apache.flink.table.data.RowData;
 import org.apache.flink.table.data.StringData;
-import org.apache.flink.table.types.logical.RowType;
 import org.apache.flink.table.types.DataType;
-import org.apache.flink.table.data.TimestampData;
+import org.apache.flink.table.types.logical.LogicalType;
+import org.apache.flink.table.types.logical.RowType;
+import org.apache.flink.table.types.logical.utils.LogicalTypeChecks;
 import org.apache.flink.util.Collector;
 
 import org.slf4j.Logger;
@@ -63,81 +72,86 @@ import org.slf4j.LoggerFactory;
 import org.snmp4j.CommunityTarget;
 import org.snmp4j.PDU;
 import org.snmp4j.Snmp;
-import org.snmp4j.Target;
 import org.snmp4j.TransportMapping;
-import org.snmp4j.UserTarget;
 import org.snmp4j.event.ResponseEvent;
 import org.snmp4j.mp.SnmpConstants;
+import org.snmp4j.mp.MPv3;
+
 import org.snmp4j.security.AuthMD5;
+import org.snmp4j.security.AuthSHA;
+import org.snmp4j.security.Priv3DES;
+import org.snmp4j.security.PrivAES128;
+import org.snmp4j.security.PrivAES192;
+import org.snmp4j.security.PrivAES256;
 import org.snmp4j.security.PrivDES;
 import org.snmp4j.security.SecurityLevel;
-import org.snmp4j.security.SecurityModels;
+import org.snmp4j.security.SecurityModel;
 import org.snmp4j.security.SecurityProtocols;
 import org.snmp4j.security.USM;
 import org.snmp4j.security.UsmUser;
+
 import org.snmp4j.smi.Address;
 import org.snmp4j.smi.GenericAddress;
 import org.snmp4j.smi.OID;
 import org.snmp4j.smi.OctetString;
 import org.snmp4j.smi.UdpAddress;
 import org.snmp4j.smi.VariableBinding;
-import org.snmp4j.smi.Null;
-import org.snmp4j.transport.DefaultUdpTransportMapping;
 
+import org.snmp4j.transport.DefaultUdpTransportMapping;
+import org.snmp4j.util.WorkerPool;
+import org.snmp4j.util.PDUFactory;
+import org.snmp4j.util.TableEvent;
+import org.snmp4j.util.TableUtils;
+import org.snmp4j.UserTarget;
+import org.snmp4j.agent.DefaultMOServer;
 
 
 /**
- * A {@link SourceReader} for the SNMP source. This reader polls the assigned
- * SNMP agent (split) and emits {@link RowData} records.
+ * A {@link SourceReader} that polls SNMP agents and emits {@link RowData}.
  */
 public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(SnmpSourceReader.class);
+    private static final Logger LOG                             = LoggerFactory.getLogger(SnmpSourceReader.class);
+    private static final DateTimeFormatter DATE_TIME_FORMATTER  = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    private final RowType rowType;
-    private final Collector<RowData> collector;
-    private final Deque<SnmpSourceSplit> splits;
-    private final Queue<RowData> fetchedRecords;
-    private final AtomicBoolean noMoreSplits;
-    private final CompletableFuture<Void> availabilityFuture;   // Signifies data availability
+    private final SourceReaderContext   readerContext;
+    private final DataType              producedDataType;
+    private final RowType               producedRowType;
+    private final Queue<RowData>        fetchedRecords;
+    private final ReentrantLock         lock = new ReentrantLock();
+    private final RecordCollector       recordCollector;
+    private final Queue<SnmpSourceSplit> splits;
+    private final java.util.concurrent.atomic.AtomicBoolean noMoreSplits;
 
-    private SourceReaderContext readerContext;
-    private RowType producedRowType; 
-    private SnmpAgentInfo currentAgentInfo;                     // The SNMP agent this reader is currently polling
-    private Snmp snmp;
-    private long lastPollTime;                                  // Timestamp of the last successful poll
-    private OID lastWalkedOid;                                  // For SNMP WALK to track progress
-    private AtomicBoolean isPolling;
+    @Nullable
+    private SnmpSourceSplit currentSplit;
+
+    @Nullable
+    private SnmpAgentInfo           currentAgentInfo;
+    private long                    lastPollTime;
+    private CompletableFuture<Void> availabilityFuture;
+    private String                  errorMessage;
+
+    // Add a public getter method
+    public String getErrorMessage() {
+        return errorMessage;
+    }
 
     public SnmpSourceReader(SourceReaderContext readerContext, DataType producedDataType) {
 
-        LOG.debug("{} SnmpSourceReader: Constructor called with readerContext and producedDataType.",
-            Thread.currentThread().getName()
-        );
+        this.readerContext          = readerContext;
+        this.producedDataType       = producedDataType;
+        this.producedRowType        = (RowType) producedDataType.getLogicalType();
+        this.splits                 = new ConcurrentLinkedQueue<>();
+        this.fetchedRecords         = new ConcurrentLinkedQueue<>();
+        this.noMoreSplits           = new java.util.concurrent.atomic.AtomicBoolean(false);
+        this.availabilityFuture     = new CompletableFuture<>();
+        this.recordCollector        = new RecordCollector();
 
-        // System.out.println("SnmpSourceReader: Constructor called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
-        this.readerContext      = readerContext;
-        this.rowType            = (RowType) producedDataType.getLogicalType();      // Cast DataType to LogicalType.RowType
-        this.fetchedRecords     = new ConcurrentLinkedQueue<>();
-        this.splits             = new ConcurrentLinkedDeque<>();
-        this.noMoreSplits       = new AtomicBoolean(false);
-        this.availabilityFuture = new CompletableFuture<>();
-        this.collector          = new RecordCollector();
-        this.isPolling          = new AtomicBoolean(false);
-
-        LOG.debug("{} SnmpSourceReader: Initialized with producedRowType: {}.",
+        LOG.debug("{} SnmpSourceReader: Initialized with producedDataType: {}.",
             Thread.currentThread().getName(),
-            this.producedRowType
+            producedDataType
         );
-
-        // System.out.println("SnmpSourceReader: Initializing for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
     }
 
     @Override
@@ -147,306 +161,396 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             Thread.currentThread().getName()
         );
 
-        // System.out.println("SnmpSourceReader: start() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
+        // Request a split from the enumerator if none are assigned yet.
+        // This is important for the initial startup where no splits have been
+        // assigned via `addSplits` yet.
+        readerContext.sendSplitRequest();
 
-        // Signal availability initially if there are splits already assigned from a restore
+        // Check if there are any splits restored from a previous execution
         if (!splits.isEmpty()) {
-            availabilityFuture.complete(null);
+            LOG.debug("{} SnmpSourceReader: {} splits found during startup. Assigning the first one.",
+                Thread.currentThread().getName(),
+                splits.size()
+            );
+            assignNextSplit(); // Assign the first split immediately
+
+        } else {
+            LOG.debug("{} SnmpSourceReader: No splits found during startup. Waiting for splits.",
+                Thread.currentThread().getName()
+            );
         }
     }
 
     @Override
     public InputStatus pollNext(ReaderOutput<RowData> output) throws Exception {
-
         LOG.debug("{} SnmpSourceReader: pollNext() called.",
             Thread.currentThread().getName()
         );
 
-        // System.out.println("SnmpSourceReader: pollNext() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
-        // If there are already fetched records, emit them first
-        RowData record;
-        while ((record = fetchedRecords.poll()) != null) {
-            output.collect(record);
-            return InputStatus.MORE_AVAILABLE;
+        // Emit fetched records first
+        while (fetchedRecords.peek() != null) {
+            output.collect(fetchedRecords.poll());
+            LOG.debug("{} SnmpSourceReader: Emitted a record.",
+                Thread.currentThread().getName()
+            );
         }
 
-        // Check if a split is assigned and it's time to poll
-        if (currentAgentInfo == null && !splits.isEmpty()) {
-
-            LOG.debug("{} SnmpSourceReader: No current agent, assigning next split.",
+        // If no current split is assigned, try to assign one
+        if (currentAgentInfo == null) {
+            LOG.debug("{} SnmpSourceReader: currentAgentInfo is null. Attempting to assign next split.",
                 Thread.currentThread().getName()
             );
 
             assignNextSplit();
-            lastPollTime = 0; // Reset last poll time to trigger immediate poll
-        }
-
-        if (currentAgentInfo != null) {
-            long currentTime = System.currentTimeMillis();
-            long intervalMillis = currentAgentInfo.getIntervalSeconds() * 1000L;
-
-            if (currentTime - lastPollTime >= intervalMillis) {
-                LOG.debug("{} SnmpSourceReader: Polling SNMP agent {}:{} (Mode: {}).",
-                    Thread.currentThread().getName(),
-                    currentAgentInfo.getHost(),
-                    currentAgentInfo.getPort(),
-                    currentAgentInfo.getPollMode()
-                );
-
-                try {
-                    pollSnmpAgent(currentAgentInfo);
-                    lastPollTime = currentTime; // Update last poll time only on success
-                } catch (IOException e) {
-                    LOG.error("{} SnmpSourceReader: Error polling SNMP agent {}:{}: {}",
-                        Thread.currentThread().getName(),
-                        currentAgentInfo.getHost(),
-                        currentAgentInfo.getPort(),
-                        e.getMessage(),
-                        e
+            if (currentAgentInfo == null) {
+                // If still no split after assignment attempt, and no more splits expected
+                if (noMoreSplits.get() && splits.isEmpty()) {
+                    LOG.debug("{} SnmpSourceReader: No more splits and no current split. Signaling FINISHED.",
+                        Thread.currentThread().getName()
                     );
-                    // Depending on error handling strategy, you might want to:
-                    // 1. Mark split as failed and request a new one (for transient errors)
-                    // 2. Fail the reader (for persistent configuration errors)
-                    // For now, we just log and continue, waiting for the next poll interval.
+                    return InputStatus.END_OF_INPUT;
+
+                } else {
+                    LOG.debug("{} SnmpSourceReader: No current split, waiting for more splits.",
+                        Thread.currentThread().getName()
+                    );
+                    return InputStatus.NOTHING_AVAILABLE; // Or WAITING_FOR_DATA
                 }
             }
         }
 
-        // If no records were fetched and no more splits are expected, signal end of input
-        if (fetchedRecords.isEmpty() && noMoreSplits.get() && splits.isEmpty() && currentAgentInfo == null) {
+        long currentTime = System.currentTimeMillis();
+        long elapsedSeconds = (currentTime - lastPollTime) / 1000;
 
-            LOG.debug("{} SnmpSourceReader: No more records, no more splits, signaling END_OF_INPUT.",
-                Thread.currentThread().getName()
+        // Poll only if the interval has passed
+        if (elapsedSeconds >= currentAgentInfo.getIntervalSeconds()) {
+            LOG.debug("{} SnmpSourceReader: Polling SNMP agent {}:{}. Elapsed seconds: {}.",
+                Thread.currentThread().getName(),
+                currentAgentInfo.getHost(),
+                currentAgentInfo.getPort(),
+                elapsedSeconds
             );
 
+            pollSnmpAgent(currentAgentInfo, recordCollector);
+            lastPollTime = currentTime; // Update last poll time after polling
+
+            LOG.debug("{} SnmpSourceReader: Finished polling SNMP agent {}:{}.",
+                Thread.currentThread().getName(),
+                currentAgentInfo.getHost(),
+                currentAgentInfo.getPort()
+            );
+
+            // After polling, check if new records were fetched
+            if (fetchedRecords.peek() != null) {
+                LOG.debug("{} SnmpSourceReader: Fetched new records. Returning MORE_AVAILABLE.",
+                    Thread.currentThread().getName()
+                );
+                return InputStatus.MORE_AVAILABLE;
+            }
+        } else {
+            LOG.debug("{} SnmpSourceReader: Waiting to poll SNMP agent {}:{}. Elapsed: {}s, Required: {}s.",
+                Thread.currentThread().getName(),
+                currentAgentInfo.getHost(),
+                currentAgentInfo.getPort(),
+                elapsedSeconds,
+                currentAgentInfo.getIntervalSeconds()
+            );
+        }
+
+        // If no records are available and no more splits are expected
+        if (noMoreSplits.get() && splits.isEmpty() && fetchedRecords.isEmpty()) {
+            LOG.debug("{} SnmpSourceReader: No more splits, no current split, and no fetched records. Signaling FINISHED.",
+                Thread.currentThread().getName()
+            );
             return InputStatus.END_OF_INPUT;
         }
 
-        // If no records were available immediately, return PENDING and complete the future when data is available
+        LOG.debug("{} SnmpSourceReader: No data available now, waiting for next poll or splits.",
+            Thread.currentThread().getName()
+        );
+
+        // Indicate that no data is currently available but more might come
+        // The future will be completed when new data is available or splits are added.
         return InputStatus.NOTHING_AVAILABLE;
     }
 
-    private void assignNextSplit() {
-
-        if (splits.isEmpty()) {
-            currentAgentInfo = null;
-            lastWalkedOid = null; // Clear last walked OID when no agent is assigned
-            return;
-        }
-
-        SnmpSourceSplit split   = splits.poll();
-        currentAgentInfo        = split.getAgentInfo();
-        lastWalkedOid           = null; // Reset for each new split/agent
-
-        LOG.debug("{} SnmpSourceReader: Assigned new split for agent {}:{}",
+    @Override
+    public List<SnmpSourceSplit> snapshotState(long checkpointId) {
+        LOG.info("{} SnmpSourceReader: snapshotState() called for checkpointId {}. Current split: {}. Remaining splits: {}.",
             Thread.currentThread().getName(),
-            currentAgentInfo.getHost(),
-            currentAgentInfo.getPort()
+            checkpointId,
+            currentSplit != null ? currentSplit.splitId() : "none",
+            splits.size()
         );
+
+        final List<SnmpSourceSplit> state = new LinkedList<>();
+        // Add the current split back to the list of splits to be checkpointed
+        if (currentSplit != null) {
+            state.add(currentSplit);
+        }
+        state.addAll(splits); // Add any pending splits
+        return state;
     }
 
-    private void pollSnmpAgent(SnmpAgentInfo agentInfo) throws IOException {
+    @Override
+    public void close() throws Exception {
+        LOG.debug("{} SnmpSourceReader: close() called.",
+            Thread.currentThread().getName()
+        );
 
-        Target<Address> target                  = null;
-        TransportMapping<UdpAddress> transport  = null;
-        Snmp snmpInstance                       = null;
+        splits.clear();
+        fetchedRecords.clear();
+        currentSplit = null;
+        currentAgentInfo = null;
+    }
 
+    @Override
+    public void addSplits(List<SnmpSourceSplit> newSplits) {
+        LOG.info("{} SnmpSourceReader: addSplits() called with {} new splits.",
+            Thread.currentThread().getName(),
+            newSplits.size()
+        );
+
+        splits.addAll(newSplits);
+        // If no split is currently assigned, try to assign one now
+        if (currentAgentInfo == null) {
+            assignNextSplit();
+        }
+
+        availabilityFuture.complete(null); // Signal that new splits are available
+        availabilityFuture = new CompletableFuture<>(); // Reset for next signal
+    }
+
+    private void assignNextSplit() {
+        lock.lock();
         try {
-            Address targetAddress = GenericAddress.parse(
-                agentInfo.getHost() + "/" + agentInfo.getPort()
-            );
+            if (currentSplit == null && !splits.isEmpty()) {
+                currentSplit = splits.poll();
+                currentAgentInfo = currentSplit.getAgentInfo();
+                lastPollTime = 0; // Trigger immediate poll for the new split
 
-            transport       = new DefaultUdpTransportMapping(new UdpAddress(0)); 
-            snmpInstance    = new Snmp(transport);
-            transport.listen();
+                LOG.info("{} SnmpSourceReader: Assigned new split: {} with agent {}:{}.",
+                    Thread.currentThread().getName(),
+                    currentSplit.splitId(),
+                    currentAgentInfo.getHost(),
+                    currentAgentInfo.getPort()
+                );
 
-            // Configure target based on SNMP version and credentials
-            if ("SNMPV1".equalsIgnoreCase(agentInfo.getSnmpVersion()) || "SNMPV2C".equalsIgnoreCase(agentInfo.getSnmpVersion())) {
-
-                CommunityTarget<Address> comtarget = new CommunityTarget<>();
-
-                comtarget.setCommunity(new OctetString(agentInfo.getCommunityString()));
-                comtarget.setAddress(targetAddress);
-                comtarget.setRetries(agentInfo.getRetries());
-                comtarget.setTimeout(agentInfo.getTimeoutSeconds() * 1000L);
-                comtarget.setVersion("SNMPV1".equalsIgnoreCase(agentInfo.getSnmpVersion()) ? SnmpConstants.version1 : SnmpConstants.version2c);
-                
-                target = comtarget;
-
-            } else if ("SNMPV3".equalsIgnoreCase(agentInfo.getSnmpVersion())) {
-
-                if (agentInfo.getUserName() == null || agentInfo.getUserName().isEmpty()) {
-                    throw new IllegalArgumentException("SNMPv3 requires a username.");
-                }
-
-                USM usm = new USM(SecurityProtocols.getInstance(), new OctetString(snmpInstance.getLocalEngineID()), 0);
-                SecurityModels.getInstance().addSecurityModel(usm);
-
-                OctetString userName = new OctetString(agentInfo.getUserName());
-                OctetString authPass = agentInfo.getPassword() != null ? new OctetString(agentInfo.getPassword()) : null;
-                OctetString privPass = agentInfo.getPassword() != null ? new OctetString(agentInfo.getPassword()) : null; // Assuming privPass is same as authPass for simplicity
-
-                UsmUser usmUser = null;
-                // Determine authentication and privacy protocols
-                if (authPass != null && authPass.length() > 0) {
-                    if (privPass != null && privPass.length() > 0) {
-
-                        // Auth and Privacy
-                        usmUser = new UsmUser(userName, AuthMD5.ID, authPass, PrivDES.ID, privPass); // Example: MD5/DES
-                        // More options: AuthSHA, PrivAES128, PrivAES192, PrivAES256
-
-                    } else {
-                        // Auth No-Privacy
-                        usmUser = new UsmUser(userName, AuthMD5.ID, authPass, null, null); // Example: MD5
-                    }
-                } else {
-                    // No Auth No-Privacy (not recommended for SNMPv3)
-                    usmUser = new UsmUser(userName, null, null, null, null);
-                }
-
-                if (usmUser != null) {
-                    snmpInstance.getUSM().addUser(usmUser);
-                }
-
-                UserTarget<Address> userTarget = new UserTarget<>();
-
-                userTarget.setAddress(targetAddress);
-                userTarget.setRetries(agentInfo.getRetries());
-                userTarget.setTimeout(agentInfo.getTimeoutSeconds() * 1000L);
-                userTarget.setVersion(SnmpConstants.version3);
-                userTarget.setSecurityLevel(SecurityLevel.AUTH_PRIV); // Or AUTH_NOPRIV, NOAUTH_NOPRIV
-                userTarget.setSecurityName(userName);
-                target = userTarget;
+            } else if (currentSplit != null) {
+                LOG.debug("{} SnmpSourceReader: Already have a current split {}. Not assigning a new one.",
+                    Thread.currentThread().getName(),
+                    currentSplit.splitId()
+                );
 
             } else {
-                throw new IllegalArgumentException("Unsupported SNMP version: " + agentInfo.getSnmpVersion());
-
-            }
-
-            for (String oidString : agentInfo.getOids()) {
-
-                OID oid = new OID(oidString);
-                PDU pdu = new PDU();
-
-                if ("GET".equalsIgnoreCase(agentInfo.getPollMode())) {
-                    pdu.add(new VariableBinding(oid));
-                    pdu.setType(PDU.GET);
-
-                    ResponseEvent<Address> responseEvent = snmpInstance.send(pdu, target); 
-
-                    if (responseEvent != null) {
-                        PDU responsePDU = responseEvent.getResponse();
-                        if (responsePDU != null) {
-                            if (responsePDU.getErrorStatus() == PDU.noError) {
-                                for (VariableBinding vb : responsePDU.getVariableBindings()) {
-                                    processVariableBinding(vb, agentInfo);
-                                    
-                                }
-                            } else {
-                                LOG.warn("{} SNMP GET Error: {} for OID {} on {}:{}",
-                                    Thread.currentThread().getName(),
-                                    responsePDU.getErrorStatusText(),
-                                    oidString,
-                                    agentInfo.getHost(),
-                                    agentInfo.getPort()
-                                );
-                            }
-                        } else {
-                            LOG.warn("{} SNMP GET Timeout or No Response for OID {} on {}:{}",
-                                Thread.currentThread().getName(),
-                                oidString,
-                                agentInfo.getHost(),
-                                agentInfo.getPort()
-                            );
-                        }
-                    } else {
-                        LOG.warn("{} SNMP GET No ResponseEvent for OID {} on {}:{}",
-                            Thread.currentThread().getName(),
-                            oidString,
-                            agentInfo.getHost(),
-                            agentInfo.getPort()
-                        );
-                    }
-                } else if ("WALK".equalsIgnoreCase(agentInfo.getPollMode())) {
-
-                    OID rootOid     = oid;
-                    OID currentOid  = (lastWalkedOid != null && lastWalkedOid.startsWith(rootOid)) ? lastWalkedOid : rootOid;
-
-                    // Implement a simple GETNEXT loop for WALK functionality
-                    // For a full-fledged WALK, snmp4j's TreeUtils or TableUtils are better.
-                    // This is a basic illustration.
-                    while (true) {
-
-                        pdu = new PDU();
-                        pdu.add(new VariableBinding(currentOid));
-                        pdu.setType(PDU.GETNEXT);
-
-                        ResponseEvent<Address> responseEvent = snmpInstance.send(pdu, target);
-
-                        if (responseEvent == null || responseEvent.getResponse() == null) {
-                            LOG.warn("{} SNMP WALK Timeout or No Response starting from OID {} on {}:{}",
-                                Thread.currentThread().getName(),
-                                currentOid.toString(),
-                                agentInfo.getHost(),
-                                agentInfo.getPort()
-                            );
-                            break; // Exit loop on timeout/no response
-                        }
-
-                        PDU responsePDU = responseEvent.getResponse();
-
-                        if (responsePDU.getErrorStatus() != PDU.noError) {
-                            LOG.warn("{} SNMP WALK Error: {} for OID {} on {}:{}",
-                                Thread.currentThread().getName(),
-                                responsePDU.getErrorStatusText(),
-                                currentOid.toString(),
-                                agentInfo.getHost(),
-                                agentInfo.getPort()
-                            );
-                            break; // Exit loop on error
-                        }
-
-                        // Fix for line 340
-                        VariableBinding vb = responsePDU.getVariableBindings().get(0);
-
-                        // Fix for line 348
-                        if (!vb.getOid().startsWith(rootOid) || (vb.getVariable() instanceof Null)) {
-                            LOG.debug("{} SNMP WALK: Reached end of MIB view or walked out of scope for OID {}",
-                                Thread.currentThread().getName(),
-                                rootOid.toString()
-                            );
-                            break;                                      // End of MIB view or walked out of the original OID's subtree
-
-                        }
-
-                        processVariableBinding(vb, agentInfo);
-                        currentOid      = vb.getOid();                  // Continue from the OID of the received variable binding
-                        lastWalkedOid   = currentOid;                   // Store for state snapshot
-
-                    }
-                } else {
-                    LOG.error("{} Unsupported poll mode: {}. Only GET and WALK are supported.",
-                        Thread.currentThread().getName(),
-                        agentInfo.getPollMode()
-                    );
-                }
+                LOG.debug("{} SnmpSourceReader: No splits available to assign.",
+                    Thread.currentThread().getName()
+                );
             }
         } finally {
-            if (snmpInstance != null) {
+            lock.unlock();
+        }
+    }
+
+    @Override
+    public void handleSourceEvents(SourceEvent sourceEvent) {
+
+        LOG.debug("{} SnmpSourceReader: handleSourceEvents() called with event: {}.",
+            Thread.currentThread().getName(),
+            sourceEvent
+        );
+        // No custom source events expected for now.
+    }
+
+    private void pollSnmpAgent(SnmpAgentInfo agentInfo, Collector<RowData> collector) {
+
+        Address targetAddress                   = GenericAddress.parse(agentInfo.getHost() + "/" + agentInfo.getPort());
+        //USM usm                                 = null;
+        TransportMapping<UdpAddress> transport  = null;
+        Snmp snmp                               = null;
+        try {
+
+            transport                           = new DefaultUdpTransportMapping(new UdpAddress(0)); // Bind to any available port
+            snmp                                = new Snmp(transport);
+
+            if ("SNMPv1".equalsIgnoreCase(agentInfo.getSnmpVersion()) || ("SNMPv2C".equalsIgnoreCase(agentInfo.getSnmpVersion()))) {
+
+                LOG.debug("{} SnmpSourceReader: Configuring SNMPv1/v2c (version: {}) for agent: {}:{}.",
+                    Thread.currentThread().getName(),
+                    agentInfo.getSnmpVersion(),
+                    agentInfo.getHost(),
+                    agentInfo.getPort()
+                );
+
+                CommunityTarget<Address> target = new CommunityTarget<>();
+                target.setCommunity(new OctetString(agentInfo.getCommunityString()));
+                target.setAddress(targetAddress);
+                target.setRetries(agentInfo.getRetries());
+                target.setTimeout(agentInfo.getTimeoutSeconds() * 1000L); 
+
+                if ("SNMPv1".equalsIgnoreCase(agentInfo.getSnmpVersion())) {
+                    target.setVersion(SnmpConstants.version1);
+
+                } else { // Default to SNMPv2c
+                    target.setVersion(SnmpConstants.version2c);
+
+                }
+
+                LOG.debug("{} SnmpSourceReader: Set SNMPv1/v2c target for {}:{}.",
+                    Thread.currentThread().getName(),
+                    agentInfo.getHost(),
+                    agentInfo.getPort()
+                );
+
+                sendSnmpRequest(snmp, target, agentInfo, collector);
+
+            // } else if ("SNMPv3".equalsIgnoreCase(agentInfo.getSnmpVersion())) {
+
+            //     LOG.debug("{} SnmpSourceReader: Configuring SNMPv3 for user: {}.",
+            //         Thread.currentThread().getName(),
+            //         agentInfo.getUserName()
+            //     );
+
+            //     SecurityProtocols.getInstance().addAuthenticationProtocol(new AuthMD5());
+            //     SecurityProtocols.getInstance().addAuthenticationProtocol(new AuthSHA());
+            //     SecurityProtocols.getInstance().addPrivacyProtocol(new PrivDES());
+            //     SecurityProtocols.getInstance().addPrivacyProtocol(new PrivAES128());
+            //     SecurityProtocols.getInstance().addPrivacyProtocol(new PrivAES192());
+            //     SecurityProtocols.getInstance().addPrivacyProtocol(new PrivAES256());
+
+            //     usm = new USM(SecurityProtocols.getInstance(), new OctetString(), new org.snmp4j.agent.DefaultMOServer());
+
+            //     OctetString localEngineID = usm.getLocalEngineID(); 
+
+            //     MPv3 mpv3 = new MPv3(usm); 
+
+            //     snmp = new Snmp((TransportMapping)transport, new org.snmp4j.mp.MessageProcessingModel[] { mpv3 });
+
+            //     snmp.listen();
+
+            //     UsmUser user;
+            //     OctetString userName        = new OctetString(agentInfo.getUserName());
+            //     OctetString authPassphrase  = new OctetString(agentInfo.getPassword()); // Assuming password is authPassphrase
+            //     OctetString privPassphrase  = new OctetString(agentInfo.getPassword()); // Assuming password is privPassphrase
+
+            //     if (agentInfo.getPassword() != null && !agentInfo.getPassword().isEmpty()) {
+            //         // Assuming SHA for auth and AES128 for priv as common secure choices
+            //         user = new UsmUser(
+            //             userName,
+            //             AuthSHA.ID,
+            //             authPassphrase,
+            //             PrivAES128.ID,
+            //             privPassphrase
+            //         );
+                    
+            //         usm.addUser(user);
+            //         LOG.debug("{} SnmpSourceReader: Added SNMPv3 user {} with AuthSHA and PrivAES128.",
+            //             Thread.currentThread().getName(),
+            //             agentInfo.getUserName()
+            //         );
+
+            //     } else {
+            //         // No authentication or privacy
+            //         user = new UsmUser(userName, null, null, null, null);
+            //         usm.addUser(user);
+            //         LOG.warn("{} SnmpSourceReader: SNMPv3 user {} configured without authentication or privacy.",
+            //             Thread.currentThread().getName(),
+            //             agentInfo.getUserName()
+            //         );
+            //     }
+
+            //     UserTarget<Address> target = new UserTarget<>();
+
+            //     target.setAddress(targetAddress);
+            //     target.setVersion(SnmpConstants.version3);
+            //     target.setSecurityName(userName);
+            //     target.setSecurityLevel(SecurityLevel.AUTH_PRIV);           // Or NOAUTH_NOPRIV, AUTH_NOPRIV
+            //     target.setRetries(agentInfo.getRetries());
+            //     target.setTimeout(agentInfo.getTimeoutSeconds() * 1000L);   // Milliseconds
+
+            //     LOG.debug("{} SnmpSourceReader: Set SNMPv3 target for {}:{}.",
+            //         Thread.currentThread().getName(),
+            //         agentInfo.getHost(),
+            //         agentInfo.getPort()
+            //     );
+
+            //     sendSnmpRequest(snmp, target, agentInfo, collector);
+            }
+            
+
+        } catch (UnknownHostException e) {
+            this.errorMessage = e.getMessage();
+
+            LOG.error("{} SnmpSourceReader: Unknown host for SNMP agent {}:{}. Error: {}. {}",
+                Thread.currentThread().getName(),
+                agentInfo.getHost(),
+                agentInfo.getPort(),
+                e.getMessage(),
+                e
+            );
+
+            LOG.error("{} SnmpSourceReader: Failed to initialize SNMP session for split {}. Error: {}. Will attempt to assign next split. {}",
+                Thread.currentThread().getName(),
+                currentSplit.splitId(),
+                e.getMessage(),
+                e 
+            );
+
+            // In case of an initialization error, stop processing this split and try to get a new one.
+            currentAgentInfo = null; // Mark current agent as failed/done
+            assignNextSplit(); // Request a new split
+
+        } catch (IOException e) {
+            this.errorMessage = e.getMessage();
+
+            LOG.error("{} SnmpSourceReader: IO error while polling SNMP agent {}:{}. Error: {}. {}",
+                Thread.currentThread().getName(),
+                agentInfo.getHost(),
+                agentInfo.getPort(),
+                e.getMessage(),
+                e
+            );
+
+            LOG.error("{} SnmpSourceReader: Failed to open SNMP session for split {}. Error: {}. Will attempt to assign next split. {}",
+                Thread.currentThread().getName(),
+                currentSplit.splitId(),
+                e.getMessage(),
+                e 
+            );
+
+            currentAgentInfo = null; // Mark current agent as failed/done
+            assignNextSplit(); // Request a new split
+
+        } catch (Exception e) {
+            this.errorMessage = e.getMessage();
+
+            LOG.error("{} SnmpSourceReader: Unexpected error while polling SNMP agent {}:{}. Error: {}. {}",
+                Thread.currentThread().getName(),
+                agentInfo.getHost(),
+                agentInfo.getPort(),
+                e.getMessage(),
+                e
+            );
+
+            LOG.error("{} SnmpSourceReader: Error while closing SNMP session for split {}: {}. {}",
+                Thread.currentThread().getName(),
+                (currentSplit != null ? currentSplit.splitId() : "N/A"),
+                e.getMessage(),
+                e 
+            );        
+
+        } finally {
+            if (snmp != null) {
                 try {
-                    snmpInstance.close();
+                    snmp.close();
+                    LOG.debug("{} SnmpSourceReader: Closed SNMP session.",
+                        Thread.currentThread().getName()
+                    );
 
                 } catch (IOException e) {
-                    LOG.error("{} Error closing SNMP instance: {} {}", 
-                        Thread.currentThread().getName(), 
-                        e.getMessage(), 
+                    LOG.warn("{} SnmpSourceReader: Error closing SNMP session: {} {}.",
+                        Thread.currentThread().getName(),
+                        e.getMessage(),
                         e
                     );
                 }
@@ -454,11 +558,14 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
             if (transport != null) {
                 try {
                     transport.close();
+                    LOG.debug("{} SnmpSourceReader: Closed transport mapping.",
+                        Thread.currentThread().getName()
+                    );
 
                 } catch (IOException e) {
-                    LOG.error("{} Error closing SNMP transport: {} {}", 
-                        Thread.currentThread().getName(), 
-                        e.getMessage(), 
+                    LOG.warn("{} SnmpSourceReader: Error closing transport mapping: {}. {}",
+                        Thread.currentThread().getName(),
+                        e.getMessage(),
                         e
                     );
                 }
@@ -466,212 +573,255 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         }
     }
 
-    private void processVariableBinding(VariableBinding vb, SnmpAgentInfo agentInfo) {
+    private <T extends org.snmp4j.Target<Address>> void sendSnmpRequest(Snmp snmp, T target, SnmpAgentInfo agentInfo, Collector<RowData> collector) throws IOException {
 
-        String deviceId                 = agentInfo.getHost();                                  // Device ID could be host or a configured ID
-        String metricOid                = vb.getOid().toString();
-        String metricValue              = vb.getVariable().toString();
-        String dataType                 = vb.getVariable().getSyntaxString();
-        String instanceIdentifier       = "";                                                   // For table-based OIDs, this would be derived from the OID suffix
+        snmp.listen();
+        PDU pdu = new PDU();
+        List<OID> oidsToPoll = agentInfo.getOids().stream().map(s -> new OID(s)).collect(Collectors.toList());
 
-        // Parse instance identifier if the OID indicates a table entry
-        // This is a basic example; more robust parsing might be needed for complex OIDs
-        if (vb.getOid().size() > 2 && metricOid.startsWith(agentInfo.getOids().get(0))) { // Assuming first OID is root for table
-            try {
-                // The instance identifier is the part of the OID after the base OID
-                //instanceIdentifier = vb.getOid().trim(agentInfo.getOids().get(0).length()).toString();
-                OID oid = vb.getOid();
-                oid.trim(agentInfo.getOids().get(0).length());
-                instanceIdentifier = oid.toString();
+        if ("GET".equalsIgnoreCase(agentInfo.getPollMode())) {
 
-            } catch (Exception e) {
-                LOG.warn("{} Error parsing instance identifier for OID {}: {}",
-                    Thread.currentThread().getName(),
-                    metricOid,
-                    e.getMessage()
+            LOG.debug("{} SnmpSourceReader: Performing SNMP GET for OIDs: {}.",
+                Thread.currentThread().getName(),
+                oidsToPoll
+            );
+
+            for (OID oid : oidsToPoll) {
+                pdu.add(new VariableBinding(oid));
+            }
+
+            pdu.setType(PDU.GET);
+            ResponseEvent<Address> responseEvent = snmp.send(pdu, target);
+
+            if (responseEvent != null && responseEvent.getResponse() != null) {
+
+                LOG.debug("{} SnmpSourceReader: SNMP GET response receive.",
+                    Thread.currentThread().getName()
                 );
+                
+                for (VariableBinding vb : responseEvent.getResponse().getVariableBindings()) {
+                    processVariableBinding(agentInfo.getHost(), agentInfo.getPort(), vb, collector);
+                }
+
+            } else if (responseEvent != null && responseEvent.getError() != null) {
+
+                LOG.error("{} SnmpSourceReader: SNMP GET request to {}:{} failed with error: {}.",
+                    Thread.currentThread().getName(),
+                    agentInfo.getHost(),
+                    agentInfo.getPort(),
+                    responseEvent.getError().getMessage()
+                );
+
+            } else {
+                LOG.warn("{} SnmpSourceReader: SNMP GET request to {}:{} timed out or no response.",
+                    Thread.currentThread().getName(),
+                    agentInfo.getHost(),
+                    agentInfo.getPort()
+                );
+            }
+        } else if ("WALK".equalsIgnoreCase(agentInfo.getPollMode())) {
+
+            LOG.debug("{} SnmpSourceReader: Performing SNMP WALK for OIDs: {}.",
+                Thread.currentThread().getName(),
+                oidsToPoll
+            );
+
+            // Using TableUtils for WALK operation
+            TableUtils tableUtils = new TableUtils(snmp, new org.snmp4j.util.PDUFactory() {
+                @Override
+                public PDU createPDU(org.snmp4j.Target target) {
+                    PDU pdu = new PDU();
+                    pdu.setType(PDU.GETNEXT); // For WALK, typically GETNEXT is used
+                    return pdu;
+                }
+
+                @Override
+                public PDU createPDU(org.snmp4j.mp.MessageProcessingModel messageProcessingModel) {
+                    PDU pdu = new PDU();
+                    pdu.setType(PDU.GETNEXT);
+                    return pdu;
+                }
+            });
+
+            for (OID oid : oidsToPoll) {
+                // The get );
+                List<TableEvent> events = tableUtils.getTable(target, new OID[]{oid}, null, null);
+                LOG.debug("{} SnmpSourceReader: SNMP WALK for OID {} returned {} events.",
+                    Thread.currentThread().getName(),
+                    oid,
+                    events.size()
+                );
+
+                if (events.isEmpty()) {
+                    LOG.warn("{} SnmpSourceReader: SNMP WALK for OID {} returned no data.",
+                        Thread.currentThread().getName(),
+                        oid
+                    );
+                }
+
+                for (TableEvent event : events) {
+                    if (getErrorMessage() != null && !getErrorMessage().isEmpty()) {
+                        LOG.error("{} SnmpSourceReader: SNMP WALK error for OID {}: {}.",
+                            Thread.currentThread().getName(),
+                            oid,
+                            event.getErrorMessage()
+                        );
+                        // Depending on the severity, you might want to fail the split or skip this OID.
+                        continue;
+                    }
+                    if (event.getColumns() != null) {
+                        for (VariableBinding vb : event.getColumns()) {
+                            if (vb != null && vb.getOid() != null) { // Ensure OID is not null
+                                processVariableBinding(agentInfo.getHost(), agentInfo.getPort(), vb, collector);
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            LOG.error("{} SnmpSourceReader: Unsupported poll mode: {}.",
+                Thread.currentThread().getName(),
+                agentInfo.getPollMode()
+            );
+            throw new IllegalArgumentException("Unsupported poll mode: " + agentInfo.getPollMode());
+        }
+    }
+
+    private void processVariableBinding(String deviceId, int port, VariableBinding vb, Collector<RowData> collector) {
+        String metricOid          = vb.getOid().toString();
+        String metricValue        = vb.getVariable().toString();
+        String dataType           = vb.getVariable().getSyntaxString(); // Get human-readable type
+        String instanceIdentifier = ""; // For scalar, this is empty. For table, this is the index.
+
+        // Extract instance identifier if it's a table OID
+        if (vb.getOid().size() > metricOid.length()) { // Check if OID has an instance suffix
+            // This is a simplistic way to get instance ID. More robust parsing might be needed
+            // depending on how specific OIDs are structured.
+            instanceIdentifier = vb.getOid().toString().substring(metricOid.length());
+            if (instanceIdentifier.startsWith(".")) {
+                instanceIdentifier = instanceIdentifier.substring(1);
             }
         }
 
-        SnmpData snmpData = new SnmpData(
+        LocalDateTime ts = LocalDateTime.now(); // Current timestamp
+
+        LOG.debug("{} SnmpSourceReader: Processing VB - Device: {}:{}, OID: {}, Value: {}, Type: {}.",
+            Thread.currentThread().getName(),
             deviceId,
+            port,
             metricOid,
             metricValue,
-            dataType,
-            instanceIdentifier,
-            LocalDateTime.now()
+            dataType
         );
 
-        // Convert SnmpData to Flink's RowData based on the table schema
-        GenericRowData rowData = new GenericRowData(rowType.getFieldCount());
+        // Create RowData based on the schema
+        GenericRowData row = new GenericRowData(producedRowType.getFieldCount());
 
-        for (int i = 0; i < rowType.getFieldCount(); i++) {
-
-            String fieldName        = rowType.getFieldNames().get(i);
+        int fieldIndex = 0;
+        for (RowType.RowField field : producedRowType.getFields()) {
+            String fieldName = field.getName();
+            LogicalType fieldType = field.getType();
 
             switch (fieldName) {
-                case "deviceId":
-                    rowData.setField(i, StringData.fromString(snmpData.getDeviceId()));
+                case "device_id":
+                    row.setField(fieldIndex, StringData.fromString(deviceId + ":" + port));
                     break;
 
-                case "metricOid":
-                    rowData.setField(i, StringData.fromString(snmpData.getMetricOid()));
+                case "metric_oid":
+                    row.setField(fieldIndex, StringData.fromString(metricOid));
+                    break;
+                case "metric_value":
+                    row.setField(fieldIndex, StringData.fromString(metricValue));
                     break;
 
-                case "metricValue":
-                    rowData.setField(i, StringData.fromString(snmpData.getMetricValue()));
+                case "data_type":
+                    row.setField(fieldIndex, StringData.fromString(dataType));
                     break;
 
-                case "dataType":
-                    rowData.setField(i, StringData.fromString(snmpData.getDataType()));
-                    break;
-
-                case "instanceIdentifier":
-                    rowData.setField(i, StringData.fromString(snmpData.getInstanceIdentifier()));
+                case "instance_identifier":
+                    row.setField(fieldIndex, StringData.fromString(instanceIdentifier));
                     break;
 
                 case "ts":
-                    rowData.setField(i, TimestampData.fromLocalDateTime(snmpData.getTs()));
+                    // Convert LocalDateTime to a format compatible with Flink's TIMESTAMP(3)
+                    // Flink's RowData expects internal representation for timestamps,
+                    // which is typically milliseconds since epoch or similar.
+                    // For simplicity, we convert to a StringData representation here,
+                    // assuming a downstream sink can parse it.
+                    // For true TIMESTAMP(3) type, you'd use TimestampData.fromLocalDateTime(ts)
+                    // and ensure the schema truly expects TIMESTAMP(3) and not VARCHAR.
+                    
+                    row.setField(fieldIndex, StringData.fromString(ts.format(DATE_TIME_FORMATTER)));
+                    break;
+
+                case "PROC_TIME": 
+                    // Process time field, can be ignored or set to current processing time
+                    // Flink's SQL API typically handles PROCTIME() automatically.
+                    // If you need to set it here, it's usually `null` for source unless
+                    // it's a generated column from event time or a specific timestamp.
+                    row.setField(fieldIndex, null); // Or TimestampData.fromLocalDateTime(LocalDateTime.now());
                     break;
 
                 default:
-                    // Handle other fields or set to null
-                    rowData.setField(i, null);
+                    row.setField(fieldIndex, null); // Set null for any unmapped fields
                     break;
             }
+            fieldIndex++;
         }
-        collector.collect(rowData);
-    }
-
-    @Override
-    public List<SnmpSourceSplit> snapshotState(long checkpointId) {
-
-        LOG.debug("{} SnmpSourceReader: snapshotState() for checkpointId {}.",
-            Thread.currentThread().getName(),
-            checkpointId
-        );
-
-        // System.out.println("SnmpSourceReader: snapshotState() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
-        List<SnmpSourceSplit> state = new ArrayList<>(splits);
-        if (currentAgentInfo != null) {
-            // Re-create the split to include the last walked OID for resuming WALK
-            SnmpSourceSplit currentSplitWithProgress = new SnmpSourceSplit(
-                currentAgentInfo.getHost() + "_" + currentAgentInfo.getPort() + "_WALK", // A unique split ID
-                currentAgentInfo
-            );
-
-            // Although SnmpSourceSplit doesn't directly store lastWalkedOid, it will be implicitly
-            // managed by the reader upon restore if it re-assigns the split.
-            // For true progress, SnmpSourceSplit would need to be extended to hold this.
-            state.add(currentSplitWithProgress);
-        }
-
-        // Also add any records not yet emitted
-        while (!fetchedRecords.isEmpty()) {
-            // This is a simplified approach. In a real scenario, fetchedRecords
-            // should probably be part of the checkpointed state of the reader itself,
-            // or handled via Flink's outputting mechanism directly without an internal buffer.
-            // For now, we'll just acknowledge that they aren't part of split state directly.
-            fetchedRecords.clear(); // Clear to avoid re-emitting
-        }
-        return state;
-    }
-
-    @Override
-    public void addSplits(List<SnmpSourceSplit> splitsToAdd) {
-
-        LOG.debug("{} SnmpSourceReader: addSplits() called with {} splits.",
-            Thread.currentThread().getName(),
-            splitsToAdd.size()
-        );
-
-        // System.out.println("SnmpSourceReader: addSplits() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
-        splits.addAll(splitsToAdd);
-        // If the reader was waiting for splits, signal availability
-        if (!availabilityFuture.isDone() && !splits.isEmpty()) {
-            availabilityFuture.complete(null);
-        }
+        collector.collect(row);
     }
 
     @Override
     public CompletableFuture<Void> isAvailable() {
-
-        LOG.debug("{} SnmpSourceReader: isAvailable() called.",
-            Thread.currentThread().getName()
-        );
+        // If there are fetched records, we are immediately available
+        if (fetchedRecords.peek() != null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        // If no more splits are expected and no current split, then we are not available (end of input)
+        if (noMoreSplits.get() && currentAgentInfo == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        // Otherwise, return the future which will be completed when new data or splits arrive
         return availabilityFuture;
     }
 
-    @Override
-    public void close() throws Exception {
-
-        LOG.debug("{} SnmpSourceReader: close() called.",
-            Thread.currentThread().getName()
+ 
+    public void onSplitFinished(Collection<String> splitIds) {
+        LOG.debug("{} SnmpSourceReader: onSplitFinished() called for splits: {}.",
+            Thread.currentThread().getName(),
+            splitIds
         );
-
-        // System.out.println("SnmpSourceReader: close() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
-        if (snmp != null) {
-            snmp.close();
-        }
-        splits.clear();
-        fetchedRecords.clear();
-        availabilityFuture.complete(null); // Ensure any pending futures are completed
+        // Implement your logic here based on the finished split IDs.
     }
 
-    @Override
-    public void notifyCheckpointComplete(long checkpointId) {
-
-        LOG.debug("{} SnmpSourceReader: notifyCheckpointComplete() for checkpointId {}.",
+    // Removed @Override as this is not a standard Flink SourceReader override
+    public void onRawSplitChanges(List<SnmpSourceSplit> splits) {
+        LOG.debug("{} SnmpSourceReader: onRawSplitChanges() called with {} splits.",
             Thread.currentThread().getName(),
-            checkpointId
+            splits.size()
         );
-
-        // System.out.println("SnmpSourceReader: notifyCheckpointComplete() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
-
+        // This method might be used for advanced scenarios where splits are dynamically added/removed
+        // within a running task. For now, simply add them.
+        addSplits(splits); // Assuming addSplits is a valid internal method to handle new splits
     }
 
-    // This method is not part of the SourceReader interface, it's an internal helper
-    // for restoring the splits queue from a snapshot. The actual snapshotState and
-    // addSplits methods are defined in the SourceReader interface.
-    // Therefore, the @Override annotation was correctly removed in the previous step.\
-    public void restoreState(List<SnmpSourceSplit> state) {
-
-        LOG.debug("{} Called, Restoring state with {} splits. Clearing current splits and fetched records.",
+    // Removed @Override as this is not a standard Flink SourceReader override
+    public void onRawStateRestore(List<SnmpSourceSplit> splits) {
+        LOG.info("{} SnmpSourceReader: Restoring state with {} splits. Total pending splits after restore: {}. Attempting to re-assign if necessary.",
             Thread.currentThread().getName(),
-            state.size()
-        );
-
-        this.splits.clear();
-        this.fetchedRecords.clear();
-        this.splits.addAll(state);
-
-        LOG.debug("{} Called, State restored. Total pending splits after restore: {}. Attempting to re-assign if necessary.",
-            Thread.currentThread().getName(),
+            splits.size(),
             this.splits.size()
         );
+        // Add restored splits to the current list of splits
+        this.splits.clear(); // Clear existing splits, as this is a restore
+        this.splits.addAll(splits);
 
         if (!this.splits.isEmpty() && currentAgentInfo == null) {
-            
             LOG.debug("{} Called, Assigning a split immediately after state restore as currentAgentInfo is null.",
                 Thread.currentThread().getName()
             );
             assignNextSplit();
-            lastPollTime = 0;
+            lastPollTime = 0; // Trigger immediate poll after restore
         }
     }
 
@@ -681,11 +831,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         LOG.debug("{} notifyNoMoreSplits called. No more splits expected.",
             Thread.currentThread().getName()
         );
-        
-        // System.out.println("SnmpSourceReader: notifyNoMoreSplits called for Thread: " 
-        //     + Thread.currentThread().getName() 
-        //     + " (Direct System.out)"
-        // );
+
 
         // For a continuous source, this method typically does not signal end of input,
         // as data might still arrive from existing assigned splits via polling.

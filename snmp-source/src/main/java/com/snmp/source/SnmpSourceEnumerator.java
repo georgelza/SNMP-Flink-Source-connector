@@ -1,9 +1,9 @@
 /* //////////////////////////////////////////////////////////////////////////////////////////////////////
-/ 
-/ 
+/
+/
 /       Project         :   Apache Flink SNMP Source connector
 /
-/       File            :   SnmpSource.java
+/       File            :   SnmpSourceEnumerator.java
 /
 /       Description     :   SNMP Source connector
 /
@@ -13,168 +13,193 @@
 /
 /       GIT Repo        :   https://github.com/georgelza/SNMP-Flink-Source-connector
 /
-/       Blog            :
+/       Blog            :\\\
 /
 *///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-package com.snmp.source; 
+package com.snmp.source;
 
 import org.apache.flink.api.connector.source.SplitEnumerator;
 import org.apache.flink.api.connector.source.SplitEnumeratorContext;
 import org.apache.flink.api.connector.source.SplitsAssignment;
-import org.apache.flink.table.types.DataType;
+import org.apache.flink.api.connector.source.SourceEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.HashMap;
 import java.util.Collection;
-
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collectors;
 
 /**
  * The {@link SnmpSourceEnumerator} is responsible for coordinating the splits for the SNMP source.
+ * It discovers SNMP agents (splits) and assigns them to {@link SnmpSourceReader}s.
  */
 public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, List<SnmpSourceSplit>> {
 
     private static final Logger LOG = LoggerFactory.getLogger(SnmpSourceEnumerator.class);
 
-    private final SplitEnumeratorContext<SnmpSourceSplit> enumContext;
-    private final DataType producedDataType;
-    private final List<SnmpAgentInfo> snmpAgentInfoList;
-    private final List<SnmpSourceSplit> currentEnumeratorCheckpoint;
+    private final SplitEnumeratorContext<SnmpSourceSplit>   context;
+    private final Queue<SnmpSourceSplit>                    pendingSplits;
+    private final Map<Integer, List<SnmpSourceSplit>>       assignedSplits;
+    private final List<SnmpAgentInfo>                       snmpAgentInfoList;
 
+    /**
+     * Constructor for initial setup of the enumerator.
+     * Added 'isInitial' boolean to differentiate from the restore constructor due to type erasure.
+     *
+     * @param context           The context for the split enumerator.
+     * @param snmpAgentInfoList The initial list of SNMP agents to discover splits from.
+     * @param isInitial         A dummy boolean to resolve constructor ambiguity.
+     */
+    public SnmpSourceEnumerator(SplitEnumeratorContext<SnmpSourceSplit> context, List<SnmpAgentInfo> snmpAgentInfoList, boolean isInitial) {
+        this.context            = context;
+        this.snmpAgentInfoList  = snmpAgentInfoList;
+        this.pendingSplits      = new ConcurrentLinkedQueue<>();
+        this.assignedSplits     = new HashMap<>();
+        
+        // Initially, all agents become splits. This might be where you discover new agents too.
+        snmpAgentInfoList.forEach(agentInfo -> pendingSplits.add(new SnmpSourceSplit(agentInfo.getHost() + ":" + agentInfo.getPort(), agentInfo)));
 
-    public SnmpSourceEnumerator(
-            SplitEnumeratorContext<SnmpSourceSplit> enumContext,
-            DataType producedDataType,
-            List<SnmpAgentInfo> snmpAgentInfoList,
-            @Nullable List<SnmpSourceSplit> currentEnumeratorCheckpoint) {
-
-        LOG.debug("{} SnmpSourceEnumerator: Constructor called.",
-            Thread.currentThread().getName()
+        LOG.debug("{} SnmpSourceEnumerator: Initialized with {} agents, creating {} splits.",
+            Thread.currentThread().getName(),
+            snmpAgentInfoList.size(),
+            pendingSplits.size()
         );
+    }
 
-        // System.out.println("SnmpSourceEnumerator: Constructor called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
+    /**
+     * Constructor for restoring the enumerator from a checkpointed state.
+     *
+     * @param context           The context for the split enumerator.
+     * @param checkpointedState The list of splits saved during the last checkpoint.
+     */
+    public SnmpSourceEnumerator(SplitEnumeratorContext<SnmpSourceSplit> context, List<SnmpSourceSplit> checkpointedState) {
+        this.context = context;
+        // When restoring, all splits from checkpointedState are treated as pending.
+        this.pendingSplits  = new ConcurrentLinkedQueue<>(checkpointedState);
+        this.assignedSplits = new HashMap<>();
+        
+        // Reconstruct snmpAgentInfoList from checkpointedState.
+        this.snmpAgentInfoList = checkpointedState.stream()
+                                    .map(SnmpSourceSplit::getAgentInfo)
+                                    .distinct()
+                                    .collect(Collectors.toList());
 
-        this.enumContext                    = enumContext;
-        this.producedDataType               = producedDataType;
-        this.snmpAgentInfoList              = snmpAgentInfoList;
-        this.currentEnumeratorCheckpoint    = currentEnumeratorCheckpoint != null ?
-            new ArrayList<>(currentEnumeratorCheckpoint) :
-            new ArrayList<>();
+        LOG.info("{} SnmpSourceEnumerator: Restored from checkpoint with {} splits.",
+            Thread.currentThread().getName(),
+            checkpointedState.size()
+        );
     }
 
     @Override
     public void start() {
-        
         LOG.debug("{} SnmpSourceEnumerator: start() called.",
             Thread.currentThread().getName()
         );
+    }
 
-        // System.out.println("SnmpSourceEnumerator: start() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
+    @Override
+    public void handleSplitRequest(int subtaskID, @Nullable String requesterHostname) {
+        LOG.debug("{} SnmpSourceEnumerator: handleSplitRequest() from subtask {} (hostname: {}).",
+            Thread.currentThread().getName(),
+            subtaskID,
+            requesterHostname
+        );
 
-        if (currentEnumeratorCheckpoint.isEmpty()) {
+        // Assign a split if available
+        SnmpSourceSplit split = pendingSplits.poll();
+
+        if (split != null) {
+            // Create an ArrayList for the splits to assign
+            List<SnmpSourceSplit> splitsForAssignment = new ArrayList<>();
+            splitsForAssignment.add(split);
+
+            // Corrected: Use the constructor that takes a Map<Integer, Collection<SplitT>>
+            context.assignSplits(new SplitsAssignment<SnmpSourceSplit>(Collections.singletonMap(subtaskID, splitsForAssignment)));
             
-            List<SnmpSourceSplit> initialSplits = new ArrayList<>();
-            
-            for (int i = 0; i < snmpAgentInfoList.size(); i++) {
-                SnmpAgentInfo agentInfo = snmpAgentInfoList.get(i);
-                initialSplits.add(new SnmpSourceSplit(String.valueOf(i), agentInfo));
-            }
-
-            enumContext.assignSplits(
-                SplitsAssignment.<SnmpSourceSplit>newBuilder()
-                    .addUnassignedSplits(initialSplits)
-                    .build()
+            assignedSplits.computeIfAbsent(subtaskID, k -> new ArrayList<>()).add(split);
+            LOG.debug("{} SnmpSourceEnumerator: Assigned split '{}' to reader {}. Remaining pending splits: {}.",
+                Thread.currentThread().getName(),
+                split.splitId(),
+                subtaskID,
+                pendingSplits.size()
             );
 
         } else {
-
-            enumContext.assignSplits(
-                SplitsAssignment.<SnmpSourceSplit>newBuilder()
-                    .addUnassignedSplits(currentEnumeratorCheckpoint)
-                    .build()
+            LOG.debug("{} SnmpSourceEnumerator: No pending splits to assign to reader {}.",
+                Thread.currentThread().getName(),
+                subtaskID
             );
-
         }
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId, @Nullable String requesterHostname) {
-
-        LOG.debug("{} SnmpSourceEnumerator: Reader {} at {} requested splits. All initial splits assigned or restored.",
+    public void handleSourceEvent(int subtaskID, SourceEvent sourceEvent) {
+        LOG.debug("{} SnmpSourceEnumerator: handleSourceEvent() from subtask {} with event {}.",
             Thread.currentThread().getName(),
-            subtaskId,
-            requesterHostname
+            subtaskID,
+            sourceEvent
         );
+        // Handle custom source events from readers if any.
     }
 
     @Override
-    public void addSplitsBack(List<SnmpSourceSplit> splits, int subtaskId) {
-
-        LOG.debug("{} SnmpSourceEnumerator: Splits added back from subtask {}: {}.",
+    public void addSplitsBack(List<SnmpSourceSplit> splits, int subtaskID) {
+        LOG.info("{} SnmpSourceEnumerator: addSplitsBack() called for subtask {}. Adding {} splits back to pending.",
             Thread.currentThread().getName(),
-            subtaskId,
+            subtaskID,
             splits.size()
         );
 
-        enumContext.assignSplits(
-            SplitsAssignment.<SnmpSourceSplit>newBuilder()
-                .addUnassignedSplits(splits)
-                .build()
-        );
+        pendingSplits.addAll(splits);
+        // Also remove them from assignedSplits map for the given subtask
+        if (assignedSplits.containsKey(subtaskID)) {
+            assignedSplits.get(subtaskID).removeAll(splits);
+        }
     }
 
     @Override
-    public void addReader(int subtaskId) {
-
-        LOG.debug("{} SnmpSourceEnumerator: Reader {} added.",
+    public void addReader(int subtaskID) {
+        LOG.debug("{} SnmpSourceEnumerator: addReader() called for subtask {}. (Thread: {})",
             Thread.currentThread().getName(),
-            subtaskId
+            subtaskID,
+            Thread.currentThread().getName()
         );
+        // When a new reader registers, we can try to assign it a split immediately.
+        handleSplitRequest(subtaskID, null);
     }
 
     @Override
     public List<SnmpSourceSplit> snapshotState(long checkpointId) throws IOException {
-
-        LOG.debug("{} SnmpSourceEnumerator: snapshotState() called for checkpointId {}.",
+        LOG.info("{} SnmpSourceEnumerator: snapshotState() called for checkpointId {}. Total pending splits: {}. Total assigned splits: {}.",
             Thread.currentThread().getName(),
-            checkpointId
+            checkpointId,
+            pendingSplits.size(),
+            assignedSplits.values().stream().mapToInt(Collection::size).sum()
         );
 
-        // System.out.println("SnmpSourceEnumerator: snapshotState() called for checkpointId: "
-        //     + checkpointId
-        //     + " (Direct System.out)"
-        // );
-
-        List<SnmpSourceSplit> splitsToSnapshot = new ArrayList<>();
-        for (int i = 0; i < snmpAgentInfoList.size(); i++) {
-             splitsToSnapshot.add(new SnmpSourceSplit(String.valueOf(i), snmpAgentInfoList.get(i)));
-        }
-
-        return splitsToSnapshot;
+        List<SnmpSourceSplit> state = new ArrayList<>();
+        state.addAll(pendingSplits);
+        assignedSplits.values().forEach(state::addAll);
+        
+        return state;
     }
 
     @Override
     public void close() throws IOException {
-
         LOG.debug("{} SnmpSourceEnumerator: close() called.",
             Thread.currentThread().getName()
         );
 
-        // System.out.println("SnmpSourceEnumerator: close() called for Thread: "
-        //     + Thread.currentThread().getName()
-        //     + " (Direct System.out)"
-        // );
+        pendingSplits.clear();
+        assignedSplits.clear();
     }
 }

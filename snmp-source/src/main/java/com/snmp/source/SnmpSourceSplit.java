@@ -51,11 +51,6 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
      */
     public SnmpSourceSplit(String splitId, SnmpAgentInfo agentInfo) {
 
-        System.out.println("SnmpSourceSplit: called for Thread: " 
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
-
         this.splitId   = Objects.requireNonNull(splitId,   "Split ID cannot be null");
         this.agentInfo = Objects.requireNonNull(agentInfo, "AgentInfo cannot be null");
     }
@@ -63,31 +58,16 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
     @Override
     public String splitId() {
         
-        System.out.println("SnmpSourceSplit: splitId() called for Thread: " 
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
-        
         return splitId;
     }
 
     public SnmpAgentInfo getAgentInfo() {
-        
-        System.out.println("SnmpSourceSplit: getAgentInfo() called for Thread: " 
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
         
         return agentInfo;
     }
 
     // Custom serialization method
     private void writeObject(ObjectOutputStream out) throws IOException {
-
-        System.out.println("SnmpSourceSplit: writeObject() called for Thread: " 
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
 
         out.writeUTF(splitId);
         out.writeObject(agentInfo); // This will trigger SnmpAgentInfo's custom writeObject
@@ -96,17 +76,13 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
     // Custom deserialization method
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
 
-        System.out.println("SnmpSourceSplit: readObject() called for Thread: " 
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
-
         splitId = in.readUTF();
         agentInfo = (SnmpAgentInfo) in.readObject(); // This will trigger SnmpAgentInfo's custom readObject
     }
 
     @Override
     public boolean equals(Object o) {
+
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SnmpSourceSplit that = (SnmpSourceSplit) o;

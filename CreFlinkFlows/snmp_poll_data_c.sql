@@ -1,5 +1,5 @@
 
-CREATE TABLE hive.snmp.snmp_poll_data2 (
+CREATE TABLE hive.snmp.snmp_poll_data3 (
      device_id                VARCHAR(255)                       -- Foreign key referencing snmp_device_info.device_id
     ,metric_oid               VARCHAR(255)                       -- Object Identifier (OID) of the polled metric
     ,metric_value             VARCHAR(1000)                      -- The value of the metric (store as string for flexibility)
@@ -10,7 +10,7 @@ CREATE TABLE hive.snmp.snmp_poll_data2 (
     ,PROC_TIME AS PROCTIME()                                    -- Flink Process time
 ) WITH (
      'connector'                    = 'snmp'
-    ,'target'                       = '172.16.10.2:161'         -- snmp 1 agent:port
+    ,'target'                       = '172.16.10.2:161,172.16.10.3:161' -- snmp 1 agent:port
     ,'snmp.version'                 = 'SNMPv1'                 
     ,'snmp.community-string'        = 'abfr24'                 
     ,'snmp.poll_mode'               = 'GET'                 

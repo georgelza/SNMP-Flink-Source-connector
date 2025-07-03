@@ -35,6 +35,7 @@ public class SnmpSourceSplitSerializer implements SimpleVersionedSerializer<Snmp
 
     @Override
     public byte[] serialize(SnmpSourceSplit split) throws IOException {
+
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
              ObjectOutputStream oos = new ObjectOutputStream(baos)) {
             // Explicitly write splitId (String) and agentInfo (SnmpAgentInfo)
@@ -47,15 +48,17 @@ public class SnmpSourceSplitSerializer implements SimpleVersionedSerializer<Snmp
 
     @Override
     public SnmpSourceSplit deserialize(int version, byte[] serialized) throws IOException {
+
         if (version != getVersion()) {
             throw new IOException("Cannot deserialize split with version " + version + ". Current version is " + getVersion() + ".");
 
         }
         try (ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
-             ObjectInputStream ois = new ObjectInputStream(bais)) {
-            // Explicitly read splitId and agentInfo
+            ObjectInputStream ois = new ObjectInputStream(bais)) {
+
             String splitId = ois.readUTF();
             SnmpAgentInfo agentInfo = (SnmpAgentInfo) ois.readObject(); // This will use SnmpAgentInfo's custom deserialization
+            
             return new SnmpSourceSplit(splitId, agentInfo);
 
         } catch (ClassNotFoundException e) {

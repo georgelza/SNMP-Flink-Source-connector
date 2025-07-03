@@ -62,7 +62,12 @@
         <dependency>
             <groupId>org.snmp4j</groupId>
             <artifactId>snmp4j</artifactId>
-            <scope>compile</scope> <!-- Compile scope so it's shaded into your fat JAR -->
+            <scope>compile</scope>
+        </dependency>
+        
+        <dependency>
+            <groupId>org.snmp4j</groupId>
+            <artifactId>snmp4j-agent</artifactId>
         </dependency>
 
         <!-- Logging dependencies (SLF4J API and Log4j2 binding) -->

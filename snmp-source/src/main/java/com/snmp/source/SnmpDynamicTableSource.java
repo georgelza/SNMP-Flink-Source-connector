@@ -1,5 +1,6 @@
+// Updated SnmpDynamicTableSource.java
 /* //////////////////////////////////////////////////////////////////////////////////////////////////////
-/ 
+/
 /
 /       Project         :   Apache Flink SNMP Source connector
 /
@@ -13,7 +14,7 @@
 /
 /       GIT Repo        :   https://github.com/georgelza/SNMP-Flink-Source-connector
 /
-/       Blog            :
+/       Blog            :\
 /
 *///////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -42,38 +43,16 @@ public class SnmpDynamicTableSource implements ScanTableSource {
     private final DataType producedDataType;
     private final List<SnmpAgentInfo> snmpAgentInfoList;
 
-    static {
-        LOG.debug("{} SnmpDynamicTableSource: Static initializer called.",
-            Thread.currentThread().getName()
-        );
-        System.out.println("SnmpDynamicTableSource: Static initializer called for Thread: "
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
-    }
-
     public SnmpDynamicTableSource(DataType producedDataType, List<SnmpAgentInfo> snmpAgentInfoList) {
-        this.producedDataType  = producedDataType;
-        this.snmpAgentInfoList = snmpAgentInfoList;
-        LOG.debug("{} SnmpDynamicTableSource: Constructor called with {} agents.",
-            Thread.currentThread().getName(),
-            snmpAgentInfoList.size()
-        );
-        System.out.println("SnmpDynamicTableSource: Constructor called for Thread: "
-            + Thread.currentThread().getName()
-            + " with " + snmpAgentInfoList.size() + " agents (Direct System.out)"
-        );
+        this.producedDataType = Objects.requireNonNull(producedDataType, "Produced data type must not be null.");
+        this.snmpAgentInfoList = Objects.requireNonNull(snmpAgentInfoList, "SNMP agent info list must not be null.");
+        LOG.debug("SnmpDynamicTableSource: Initialized with producedDataType: {} and {} SNMP agents.",
+            producedDataType, snmpAgentInfoList.size());
     }
 
     @Override
     public ChangelogMode getChangelogMode() {
-        LOG.debug("{} SnmpDynamicTableSource: getChangelogMode() called.",
-            Thread.currentThread().getName()
-        );
-        System.out.println("SnmpDynamicTableSource: getChangelogMode() called for Thread: "
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
+        // For a polling source that only produces new data, ChangelogMode.insertOnly() is appropriate.
         return ChangelogMode.insertOnly();
     }
 
@@ -90,22 +69,12 @@ public class SnmpDynamicTableSource implements ScanTableSource {
 
     @Override
     public DynamicTableSource copy() {
-
-        LOG.debug("{} SnmpDynamicTableSource: copy() called.",
-            Thread.currentThread().getName()
-        );
-
-        System.out.println("SnmpDynamicTableSource: copy() called for Thread: "
-            + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
-
+        // Removed temporary debug log for copy method as well, assuming it was for one-off debugging
         return new SnmpDynamicTableSource(producedDataType, new ArrayList<>(snmpAgentInfoList));
     }
 
     @Override
     public boolean equals(Object o) {
-
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         SnmpDynamicTableSource that = (SnmpDynamicTableSource) o;
@@ -121,8 +90,9 @@ public class SnmpDynamicTableSource implements ScanTableSource {
 
     @Override
     public String asSummaryString() {
+
         return "SNMP Polling Source (Targets: " + snmpAgentInfoList.stream()
-                                            .map(agent -> agent.getHost() + ":" + agent.getPort())
-                                            .collect(Collectors.joining(", ")) + ")";
+            .map(agent -> agent.getHost() + ":" + agent.getPort())
+            .collect(Collectors.joining(", ")) + ")";
     }
 }
