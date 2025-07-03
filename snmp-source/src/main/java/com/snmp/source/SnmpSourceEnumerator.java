@@ -49,7 +49,7 @@ public class SnmpSourceEnumerator implements SplitEnumerator<SnmpSourceSplit, Li
     private final SplitEnumeratorContext<SnmpSourceSplit>   context;
     private final Queue<SnmpSourceSplit>                    pendingSplits;
     private final Map<Integer, List<SnmpSourceSplit>>       assignedSplits;
-    private final List<SnmpAgentInfo>                       snmpAgentInfoList;
+    private final List<SnmpAgentInfo>                       snmpAgentInfoList;          // A list to handle the potential multiple snmp agents
 
     /**
      * Constructor for initial setup of the enumerator.
