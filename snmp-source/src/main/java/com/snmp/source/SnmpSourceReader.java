@@ -112,6 +112,7 @@ import org.snmp4j.agent.DefaultMOServer;
 public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> {
 
     private static final Logger LOG                             = LoggerFactory.getLogger(SnmpSourceReader.class);
+    
     private static final DateTimeFormatter DATE_TIME_FORMATTER  = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final SourceReaderContext   readerContext;
