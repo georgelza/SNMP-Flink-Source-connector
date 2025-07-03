@@ -165,6 +165,7 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
         Map<Integer, List<SnmpSourceSplit>> assignments = new HashMap<>();
         for (SnmpSourceSplit split : splitsToAssign) {
+            
             int targetReader = (currentReaderIndex % readerCount);
             // Add split to the list for the targetReader
             assignments.computeIfAbsent(targetReader, k -> new ArrayList<>()).add(split);

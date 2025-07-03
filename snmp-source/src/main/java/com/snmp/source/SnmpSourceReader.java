@@ -112,16 +112,16 @@ import org.snmp4j.agent.DefaultMOServer;
 public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> {
 
     private static final Logger LOG                             = LoggerFactory.getLogger(SnmpSourceReader.class);
-    
+
     private static final DateTimeFormatter DATE_TIME_FORMATTER  = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
-    private final SourceReaderContext   readerContext;
-    private final DataType              producedDataType;
-    private final RowType               producedRowType;
-    private final Queue<RowData>        fetchedRecords;
-    private final ReentrantLock         lock = new ReentrantLock();
-    private final RecordCollector       recordCollector;
+    private final SourceReaderContext    readerContext;
+    private final DataType               producedDataType;
+    private final RowType                producedRowType;
+    private final ReentrantLock          lock = new ReentrantLock();
+    private final RecordCollector        recordCollector;
     private final Queue<SnmpSourceSplit> splits;
+    private final Queue<RowData>         fetchedRecords;
     private final java.util.concurrent.atomic.AtomicBoolean noMoreSplits;
 
     @Nullable
@@ -148,17 +148,24 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         this.noMoreSplits           = new java.util.concurrent.atomic.AtomicBoolean(false);
         this.availabilityFuture     = new CompletableFuture<>();
         this.recordCollector        = new RecordCollector();
+        this.lastPollTime           = 0;                                // Initialize last poll time
 
         LOG.debug("{} SnmpSourceReader: Initialized with producedDataType: {}.",
             Thread.currentThread().getName(),
             producedDataType
+        );
+
+        System.out.println("SnmpSourceReader: SNMP Source Reader initialized, called" 
+            + " for Thread: "
+            + Thread.currentThread().getName() 
+            + " (Direct System.out)"
         );
     }
 
     @Override
     public void start() {
 
-        LOG.debug("{} SnmpSourceReader: start() called.",
+        LOG.debug("{} SnmpSourceReader: start() called. Requesting splits...",
             Thread.currentThread().getName()
         );
 
@@ -169,6 +176,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
         // Check if there are any splits restored from a previous execution
         if (!splits.isEmpty()) {
+
             LOG.debug("{} SnmpSourceReader: {} splits found during startup. Assigning the first one.",
                 Thread.currentThread().getName(),
                 splits.size()
@@ -185,111 +193,168 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
     @Override
     public InputStatus pollNext(ReaderOutput<RowData> output) throws Exception {
 
-        LOG.debug("{} SnmpSourceReader: pollNext() called.",
-            Thread.currentThread().getName()
+        LOG.debug("{} SnmpSourceReader: pollNext() called. fetchedRecords size: {}", 
+            Thread.currentThread().getName(),
+            fetchedRecords.size()
         );
 
-        // Emit fetched records first
-        while (fetchedRecords.peek() != null) {
-            output.collect(fetchedRecords.poll());
+        System.out.println("SnmpSourceReader: pollNext()" 
+            + " fetchedRecords size... " + fetchedRecords.size()
+            + " for Thread: "            + Thread.currentThread().getName() 
+            + " (Direct System.out)"
+        );
 
-            LOG.debug("{} SnmpSourceReader: pollNext() Emitted a record.",
-                Thread.currentThread().getName()
-            );
-        }
+        try {
+            // Emit fetched records first
+            while (fetchedRecords.peek() != null) {
+                output.collect(fetchedRecords.poll());
 
-        // If no current split is assigned, try to assign one
-        if (currentAgentInfo == null) {
-            LOG.debug("{} SnmpSourceReader: pollNext() currentAgentInfo is null. Attempting to assign next split.",
-                Thread.currentThread().getName()
-            );
-
-            assignNextSplit();
-            if (currentAgentInfo == null) {
-                // If still no split after assignment attempt, and no more splits expected
-                if (noMoreSplits.get() && splits.isEmpty()) {
-                    LOG.debug("{} SnmpSourceReader: pollNext() No more splits and no current split. Signaling FINISHED.",
-                        Thread.currentThread().getName()
-                    );
-                    return InputStatus.END_OF_INPUT;
-
-                } else {
-                    LOG.debug("{} SnmpSourceReader: pollNext() No current split, waiting for more splits.",
-                        Thread.currentThread().getName()
-                    );
-                    return InputStatus.NOTHING_AVAILABLE; // Or WAITING_FOR_DATA
-                }
-            }
-        }
-
-        long currentTime = System.currentTimeMillis();
-        long elapsedSeconds = (currentTime - lastPollTime) / 1000;
-
-        // Poll only if the interval has passed
-        if (elapsedSeconds >= currentAgentInfo.getIntervalSeconds()) {
-            LOG.debug("{} SnmpSourceReader: pollNext() Polling SNMP agent {}:{}. Elapsed seconds: {}.",
-                Thread.currentThread().getName(),
-                currentAgentInfo.getHost(),
-                currentAgentInfo.getPort(),
-                elapsedSeconds
-            );
-
-            System.out.println("SnmpSourceReader: pollNext(): Polling" 
-                + " Agent: "
-                + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
-                + " for Thread "
-                + Thread.currentThread().getName()
-            );
-
-            pollSnmpAgent(currentAgentInfo, recordCollector);
-            lastPollTime = currentTime; // Update last poll time after polling
-           
-            System.out.println("SnmpSourceReader: pollNext(): Finished polling" 
-                + " " + lastPollTime
-                + " Agent: "
-                + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
-                + " for Thread "
-                + Thread.currentThread().getName()
-            );
-
-            LOG.debug("{} SnmpSourceReader: pollNext() Finished polling SNMP agent {}:{}.",
-                Thread.currentThread().getName(),
-                currentAgentInfo.getHost(),
-                currentAgentInfo.getPort()
-            );
-
-            // After polling, check if new records were fetched
-            if (fetchedRecords.peek() != null) {
-                LOG.debug("{} SnmpSourceReader: pollNext() Fetched new records. Returning MORE_AVAILABLE.",
-                    Thread.currentThread().getName()
+                LOG.debug("{} SnmpSourceReader: pollNext() called. Remaining in queue: {}", 
+                    Thread.currentThread().getName(), 
+                    fetchedRecords.size()
                 );
+
+                System.out.println("SnmpSourceReader: pollNext()" 
+                    + " Remaining in queue... " + fetchedRecords.size()
+                    + " for Thread: "           + Thread.currentThread().getName() 
+                    + " (Direct System.out)"
+                );
+
+                // If we just emitted a record, we might have more, or we might need to poll again.
+                // For a continuous source, we indicate MORE_AVAILABLE if there's any chance of more data.
+                // We also ensure the availability future is completed as data has been made available.
+                if (!availabilityFuture.isDone()) {
+                    availabilityFuture.complete(null);
+                }
+        
                 return InputStatus.MORE_AVAILABLE;
             }
-        } else {
-            LOG.debug("{} SnmpSourceReader: pollNext() Waiting to poll SNMP agent {}:{}. Elapsed: {}s, Required: {}s.",
-                Thread.currentThread().getName(),
-                currentAgentInfo.getHost(),
-                currentAgentInfo.getPort(),
-                elapsedSeconds,
-                currentAgentInfo.getIntervalSeconds()
-            );
-        }
 
-        // If no records are available and no more splits are expected
-        if (noMoreSplits.get() && splits.isEmpty() && fetchedRecords.isEmpty()) {
-            LOG.debug("{} SnmpSourceReader: pollNext() No more splits, no current split, and no fetched records. Signaling FINISHED.",
+            // If no current split is assigned, try to assign one
+            if (currentAgentInfo == null) {
+
+                LOG.debug("{} SnmpSourceReader: pollNext() currentAgentInfo is null. Attempting to assign next split.",
+                    Thread.currentThread().getName()
+                );
+
+                assignNextSplit();
+                if (currentAgentInfo == null) {
+                    // If still no split after assignment attempt, and no more splits expected
+                    if (noMoreSplits.get() && splits.isEmpty()) {
+
+                        LOG.debug("{} SnmpSourceReader: pollNext() No more splits and no current split. Signaling FINISHED.",
+                            Thread.currentThread().getName()
+                        );
+                        return InputStatus.END_OF_INPUT;
+
+                    } else {
+                        LOG.debug("{} SnmpSourceReader: pollNext() No current split, waiting for more splits.",
+                            Thread.currentThread().getName()
+                        );
+                        return InputStatus.NOTHING_AVAILABLE; // Or WAITING_FOR_DATA
+                    }
+                }
+            }
+
+            long currentTime        = System.currentTimeMillis(); 
+            long requiredInterval   = (long) currentAgentInfo.getIntervalSeconds() * 1000;
+
+            //long elapsedSeconds     = (currentTime - lastPollTime) / 1000;
+
+            // Poll only if the interval has passed
+            if (currentTime - lastPollTime >= requiredInterval) {
+
+                LOG.debug("{} SnmpSourceReader: pollNext() Polling SNMP agent {}:{}. Elapsed seconds: {}. {}",
+                    Thread.currentThread().getName(),
+                    currentAgentInfo.getHost(),
+                    currentAgentInfo.getPort(),
+                    (currentTime - lastPollTime),
+                    requiredInterval
+                );
+
+                System.out.println("SnmpSourceReader: pollNext(): Polling" 
+                    + " Agent: "
+                    + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
+                    + " for Thread "
+                    + Thread.currentThread().getName()
+                    + " (Direct System.out)"
+                );
+
+                pollSnmpAgent(currentAgentInfo, recordCollector);
+                lastPollTime = System.currentTimeMillis();
+            
+                System.out.println("SnmpSourceReader: pollNext(): Finished polling" 
+                    + " " + lastPollTime
+                    + " Agent: "
+                    + currentAgentInfo.getHost() + ":" + currentAgentInfo.getPort()
+                    + " for Thread "
+                    + Thread.currentThread().getName()
+                    + " (Direct System.out)"
+                );
+
+                LOG.debug("{} SnmpSourceReader: pollNext() Finished polling SNMP agent {}:{}.",
+                    Thread.currentThread().getName(),
+                    currentAgentInfo.getHost(),
+                    currentAgentInfo.getPort()
+                );
+
+                // After polling, check if new records were fetched
+                // if (fetchedRecords.peek() != null) {
+                //     LOG.debug("{} SnmpSourceReader: pollNext() Fetched new records. Returning MORE_AVAILABLE.",
+                //         Thread.currentThread().getName()
+                //     );
+                //     return InputStatus.MORE_AVAILABLE;
+                // }
+
+                // After polling, check if records were fetched and immediately make them available
+                if (!fetchedRecords.isEmpty()) {
+                    output.collect(fetchedRecords.poll());              // Emit at least one record if available
+                    if (!availabilityFuture.isDone()) {
+                        availabilityFuture.complete(null);        // Complete the future as data is available
+
+                    }
+                    return InputStatus.MORE_AVAILABLE;
+                }
+
+            } else {
+                LOG.debug("{} SnmpSourceReader: pollNext() Waiting to poll SNMP agent {}:{}. Elapsed: {}s, Required: {}s.",
+                    Thread.currentThread().getName(),
+                    currentAgentInfo.getHost(),
+                    currentAgentInfo.getPort(),
+                    (currentTime - lastPollTime),
+                    requiredInterval
+                );
+            }
+
+            // If no records are available and no more splits are expected
+            if (noMoreSplits.get() && splits.isEmpty() && fetchedRecords.isEmpty()) {
+                LOG.debug("{} SnmpSourceReader: pollNext() No more splits, no current split, and no fetched records. Signaling FINISHED.",
+                    Thread.currentThread().getName()
+                );
+                return InputStatus.END_OF_INPUT;
+            }
+
+            LOG.debug("{} SnmpSourceReader: pollNext() No data available now, waiting for next poll or splits.",
                 Thread.currentThread().getName()
             );
-            return InputStatus.END_OF_INPUT;
+
+            // Indicate that no data is currently available but more might come
+            // The future will be completed when new data is available or splits are added.
+            return InputStatus.NOTHING_AVAILABLE;
+        
+        } catch (Exception e) {
+            LOG.error("{} SnmpSourceReader: Critical error in pollNext: {}. {}", 
+                Thread.currentThread().getName(),
+                e.getMessage(), 
+                e
+            );
+
+            // On critical error, fail the availability future and propagate the error.
+            availabilityFuture.completeExceptionally(e);
+
+            // Propagate the error by throwing a RuntimeException
+            throw new RuntimeException("Critical error in SNMP Source Reader.", e);
         }
-
-        LOG.debug("{} SnmpSourceReader: pollNext() No data available now, waiting for next poll or splits.",
-            Thread.currentThread().getName()
-        );
-
-        // Indicate that no data is currently available but more might come
-        // The future will be completed when new data is available or splits are added.
-        return InputStatus.NOTHING_AVAILABLE;
     }
 
     @Override
@@ -382,6 +447,14 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
     private void pollSnmpAgent(SnmpAgentInfo agentInfo, Collector<RowData> collector) {
 
+        System.out.println("SnmpSourceReader: pollSnmpAgent(): Called" 
+            + " Agent: "
+            + agentInfo.getHost() + ":" + agentInfo.getPort()
+            + " for Thread "
+            + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         Address targetAddress                   = GenericAddress.parse(agentInfo.getHost() + "/" + agentInfo.getPort());
         //USM usm                                 = null;
         TransportMapping<UdpAddress> transport  = null;
@@ -398,6 +471,14 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                     agentInfo.getSnmpVersion(),
                     agentInfo.getHost(),
                     agentInfo.getPort()
+                );
+                
+                System.out.println("SnmpSourceReader: pollSnmpAgent(): SNMPv1 Configuring" 
+                    + " Agent: "
+                    + agentInfo.getHost() + ":" + agentInfo.getPort()
+                    + " for Thread "
+                    + Thread.currentThread().getName()
+                    + " (Direct System.out)"
                 );
 
                 CommunityTarget<Address> target = new CommunityTarget<>();
@@ -593,6 +674,23 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
     private <T extends org.snmp4j.Target<Address>> void sendSnmpRequest(Snmp snmp, T target, SnmpAgentInfo agentInfo, Collector<RowData> collector) throws IOException {
 
+        LOG.error("{} SnmpSourceReader: sendSnmpRequest(): {} Called for Agent {}:{}",
+            Thread.currentThread().getName(), 
+            agentInfo.getPollMode(),
+            agentInfo.getHost(),
+            agentInfo.getPort()
+        );
+
+        System.out.println("SnmpSourceReader: sendSnmpRequest(): "
+            + agentInfo.getPollMode()
+            + " Called for" 
+            + " Agent: "
+            + agentInfo.getHost() + ":" + agentInfo.getPort()
+            + " for Thread "
+            + Thread.currentThread().getName()
+            + " (Direct System.out)"
+        );
+
         snmp.listen();
         PDU pdu = new PDU();
         List<OID> oidsToPoll = agentInfo.getOids().stream().map(s -> new OID(s)).collect(Collectors.toList());
@@ -604,6 +702,13 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 oidsToPoll
             );
 
+            System.out.println("SnmpSourceReader: sendSnmpRequest() Performing SNMP GET for OIDs: "
+                + oidsToPoll
+                + " for Thread "
+                + Thread.currentThread().getName()
+                + " (Direct System.out)"
+            );
+
             for (OID oid : oidsToPoll) {
                 pdu.add(new VariableBinding(oid));
             }
@@ -613,9 +718,20 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
             if (responseEvent != null && responseEvent.getResponse() != null) {
 
-                LOG.debug("{} SnmpSourceReader: sendSnmpRequest() SNMP GET response receive.",
-                    Thread.currentThread().getName()
+                LOG.error("{} SnmpSourceReader: sendSnmpRequest(): SNMP GET response receive for Agent {}:{} Response: {}",
+                    Thread.currentThread().getName(), 
+                    agentInfo.getHost(),
+                    agentInfo.getPort(),
+                    responseEvent
                 );
+
+                System.out.println("SnmpSourceReader: sendSnmpRequest(): Called" 
+                    + " Agent: "            + agentInfo.getHost() + ":" + agentInfo.getPort()
+                    + " Response receive"   + responseEvent
+                    + " for Thread "        + Thread.currentThread().getName()
+                    + " (Direct System.out)"
+                 );
+
                 
                 for (VariableBinding vb : responseEvent.getResponse().getVariableBindings()) {
                     processVariableBinding(agentInfo.getHost(), agentInfo.getPort(), vb, collector);
@@ -637,11 +753,19 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                     agentInfo.getPort()
                 );
             }
+
         } else if ("WALK".equalsIgnoreCase(agentInfo.getPollMode())) {
 
             LOG.debug("{} SnmpSourceReader: sendSnmpRequest() Performing SNMP WALK for OIDs: {}.",
                 Thread.currentThread().getName(),
                 oidsToPoll
+            );
+
+            System.out.println("SnmpSourceReader: sendSnmpRequest() Performing SNMP WALK for OIDs: "
+                + oidsToPoll
+                + " for Thread "
+                + Thread.currentThread().getName()
+                + " (Direct System.out)"
             );
 
             // Using TableUtils for WALK operation
@@ -701,6 +825,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
                 Thread.currentThread().getName(),
                 agentInfo.getPollMode()
             );
+            
             throw new IllegalArgumentException("Unsupported poll mode: " + agentInfo.getPollMode());
         }
     }
@@ -791,13 +916,20 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
     @Override
     public CompletableFuture<Void> isAvailable() {
+
+        LOG.debug("{} isAvailable called:", 
+            Thread.currentThread().getName() 
+        );
+
         // If there are fetched records, we are immediately available
         if (fetchedRecords.peek() != null) {
             return CompletableFuture.completedFuture(null);
+
         }
         // If no more splits are expected and no current split, then we are not available (end of input)
         if (noMoreSplits.get() && currentAgentInfo == null) {
             return CompletableFuture.completedFuture(null);
+
         }
         // Otherwise, return the future which will be completed when new data or splits arrive
         return availabilityFuture;
@@ -805,6 +937,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
  
     public void onSplitFinished(Collection<String> splitIds) {
+
         LOG.debug("{} SnmpSourceReader: onSplitFinished() called for splits: {}.",
             Thread.currentThread().getName(),
             splitIds
@@ -814,6 +947,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
     // Removed @Override as this is not a standard Flink SourceReader override
     public void onRawSplitChanges(List<SnmpSourceSplit> splits) {
+
         LOG.debug("{} SnmpSourceReader: onRawSplitChanges() called with {} splits.",
             Thread.currentThread().getName(),
             splits.size()
@@ -825,6 +959,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
 
     // Removed @Override as this is not a standard Flink SourceReader override
     public void onRawStateRestore(List<SnmpSourceSplit> splits) {
+
         LOG.info("{} SnmpSourceReader: onRawSplitChanges() Restoring state with {} splits. Total pending splits after restore: {}. Attempting to re-assign if necessary.",
             Thread.currentThread().getName(),
             splits.size(),
@@ -835,6 +970,7 @@ public class SnmpSourceReader implements SourceReader<RowData, SnmpSourceSplit> 
         this.splits.addAll(splits);
 
         if (!this.splits.isEmpty() && currentAgentInfo == null) {
+            
             LOG.debug("{} SnmpSourceReader: onRawSplitChanges() Called, Assigning a split immediately after state restore as currentAgentInfo is null.",
                 Thread.currentThread().getName()
             );

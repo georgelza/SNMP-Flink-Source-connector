@@ -39,7 +39,9 @@ public class SnmpPollingJob {
     public static void main(String[] args) throws Exception {
 
         System.out.println(
-            Thread.currentThread().getName() + " Method called."
+            " SnmpPollingJob().Main() Method called."
+            + " for Thread "
+            + Thread.currentThread().getName()
         );
         
 
@@ -55,6 +57,14 @@ public class SnmpPollingJob {
             tableToSelectFromName = args[2];
             fullTableName         = String.format("%s.%s.%s", catalogName, databaseName, tableToSelectFromName);
         
+            System.out.println(
+                " SnmpPollingJob().Main()"
+                + " catalog: "  + catalogName
+                + " database: " + databaseName
+                + " table: "    + tableToSelectFromName
+                + " for Thread "
+                + Thread.currentThread().getName()
+            );
 
             LOG.debug("{}: Arguments received: Catalog='{}', Database='{}', Table to Select From='{}'",
                 Thread.currentThread().getName(),
@@ -91,6 +101,7 @@ public class SnmpPollingJob {
                 catalogName, 
                 databaseName
             );
+            
         } catch (Exception e) {
             LOG.error("{}: Failed to use catalog '{}' or database '{}'. Ensure it's correctly configured in Flink and necessary connector JARs are in Flink's lib directory. Error: {} {}",
                 Thread.currentThread().getName(),

@@ -57,6 +57,7 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
      * @param snmpAgentInfoList A list of SNMP agent configurations to poll.
      */
     public SnmpSource(DataType producedDataType, List<SnmpAgentInfo> snmpAgentInfoList) {
+
         this.producedDataType = Objects.requireNonNull(producedDataType, "Produced data type cannot be null.");
         this.snmpAgentInfoList = Objects.requireNonNull(snmpAgentInfoList, "SNMP agent info list cannot be null.");
 
@@ -64,10 +65,9 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
             throw new IllegalArgumentException("SNMP agent info list cannot be empty.");
         }
 
-        LOG.debug("{} SnmpSource: Initialized with {} SNMP agents. (Thread: {})",
+        LOG.debug("{} SnmpSource: Initialized with {} SNMP agents.",
             Thread.currentThread().getName(),
-            snmpAgentInfoList.size(),
-            Thread.currentThread().getName()
+            snmpAgentInfoList.size()
         );
     }
 
@@ -79,9 +79,11 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
      */
     @Override
     public SourceReader<RowData, SnmpSourceSplit> createReader(SourceReaderContext readerContext) {
-        LOG.debug("{} SnmpSource: createReader() called. (Thread: {})",
+
+        LOG.debug("{} SnmpSource: createReader() called.",
             Thread.currentThread().getName()
         );
+
         return new SnmpSourceReader(readerContext, producedDataType);
     }
 
@@ -95,10 +97,11 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     @Override
     public SplitEnumerator<SnmpSourceSplit, List<SnmpSourceSplit>> createEnumerator(
             SplitEnumeratorContext<SnmpSourceSplit> enumContext) {
-        LOG.debug("{} SnmpSource: createEnumerator() called for initial setup. (Thread: {})",
+
+        LOG.debug("{} SnmpSource: createEnumerator() called for initial setup.",
             Thread.currentThread().getName()
         );
-        // Corrected: Added 'true' to differentiate this constructor from the restore constructor
+
         return new SnmpSourceEnumerator(enumContext, snmpAgentInfoList, true);
     }
 
@@ -115,11 +118,12 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     public SplitEnumerator<SnmpSourceSplit, List<SnmpSourceSplit>> restoreEnumerator(
             SplitEnumeratorContext<SnmpSourceSplit> enumContext,
             List<SnmpSourceSplit> checkpointedState) throws IOException {
-        LOG.debug("{} SnmpSource: restoreEnumerator() called with {} splits. (Thread: {})",
+
+        LOG.debug("{} SnmpSource: restoreEnumerator() called with {} splits.",
             Thread.currentThread().getName(),
             checkpointedState.size()
         );
-        // This constructor assumes SnmpSourceEnumerator can take the checkpointed state for restoration.
+
         return new SnmpSourceEnumerator(enumContext, checkpointedState);
     }
 
@@ -131,9 +135,11 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
      */
     @Override
     public Boundedness getBoundedness() {
-        LOG.debug("{} SnmpSource: getBoundedness() called. Returning CONTINUOUS_UNBOUNDED. (Thread: {})",
+
+        LOG.debug("{} SnmpSource: getBoundedness() called. Returning CONTINUOUS_UNBOUNDED.",
             Thread.currentThread().getName()
         );
+
         return Boundedness.CONTINUOUS_UNBOUNDED;
     }
 
@@ -145,11 +151,10 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     @Override
     public SimpleVersionedSerializer<SnmpSourceSplit> getSplitSerializer() {
 
-        LOG.debug("{} SnmpSource: getSplitSerializer() called. (Thread: {})",
+        LOG.debug("{} SnmpSource: getSplitSerializer() called.",
             Thread.currentThread().getName()
         );
 
-        // Return your custom serializer for SnmpSourceSplit
         return new SnmpSourceSplitSerializer();
     }
 
@@ -161,11 +166,10 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     @Override
     public SimpleVersionedSerializer<List<SnmpSourceSplit>> getEnumeratorCheckpointSerializer() {
 
-        LOG.debug("{} SnmpSource: getEnumeratorCheckpointSerializer() called. (Thread: {})",
+        LOG.debug("{} SnmpSource: getEnumeratorCheckpointSerializer() called.",
             Thread.currentThread().getName()
         );
 
-        // Similarly, use a custom serializer for the enumerator's checkpointed state.
         return new SnmpSourceSplitListSerializer();
     }
 
@@ -176,14 +180,13 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
 
         SnmpSource that = (SnmpSource) o;
 
-        // Compare producedDataType and the list of SnmpAgentInfo
         return Objects.equals(producedDataType, that.producedDataType) &&
                Objects.equals(snmpAgentInfoList, that.snmpAgentInfoList);
     }
 
     @Override
     public int hashCode() {
-        // Calculate hash code based on producedDataType and the list of SnmpAgentInfo
+
         return Objects.hash(producedDataType, snmpAgentInfoList);
     }
 }

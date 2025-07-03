@@ -146,14 +146,16 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
             if (target.isEmpty()) {
                 continue;
             }
+
             String[] parts = target.split(":");
             if (parts.length != 2) {
                 throw new IllegalArgumentException("Invalid target format. Expected 'host:port', but got: " + target);
             }
+            
             String host = parts[0];
-            int port = Integer.parseInt(parts[1]);
+            int port    = Integer.parseInt(parts[1]);
 
-            SnmpAgentInfo snmpAgentInfo = new SnmpAgentInfo( // Corrected to SnmpAgentInfo (singular)
+            SnmpAgentInfo snmpAgentInfo = new SnmpAgentInfo( 
                     host,
                     port,
                     snmpVersion,
@@ -180,6 +182,11 @@ public class SnmpDynamicTableSourceFactory implements DynamicTableSourceFactory 
         if (snmpAgentInfoList.isEmpty()) {
             throw new IllegalArgumentException("No valid SNMP agent targets provided.");
         }
+
+        System.out.println("SnmpDynamicTableSourceFactory: createDynamicTableSource(): Called" 
+            + " for Thread "
+            + Thread.currentThread().getName()
+        );
 
         // Return the DynamicTableSource implementation
         // This line needs to be updated in SnmpDynamicTableSource.java to accept a List<SnmpAgentInfo>
