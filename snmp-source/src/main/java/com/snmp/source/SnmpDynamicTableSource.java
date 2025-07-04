@@ -44,10 +44,15 @@ public class SnmpDynamicTableSource implements ScanTableSource {
     private final List<SnmpAgentInfo> snmpAgentInfoList;
 
     public SnmpDynamicTableSource(DataType producedDataType, List<SnmpAgentInfo> snmpAgentInfoList) {
+
         this.producedDataType = Objects.requireNonNull(producedDataType, "Produced data type must not be null.");
         this.snmpAgentInfoList = Objects.requireNonNull(snmpAgentInfoList, "SNMP agent info list must not be null.");
-        LOG.debug("SnmpDynamicTableSource: Initialized with producedDataType: {} and {} SNMP agents.",
-            producedDataType, snmpAgentInfoList.size());
+        
+        LOG.debug("{} SnmpDynamicTableSource(): Initialized with producedDataType: {} and {} SNMP agents.",
+            Thread.currentThread().getName(),
+            producedDataType, 
+            snmpAgentInfoList.size()
+        );
     }
 
     @Override

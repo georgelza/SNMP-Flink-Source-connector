@@ -37,12 +37,14 @@ public class SnmpSourceSplitSerializer implements SimpleVersionedSerializer<Snmp
     public byte[] serialize(SnmpSourceSplit split) throws IOException {
 
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
-             ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+
+        ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+
             // Explicitly write splitId (String) and agentInfo (SnmpAgentInfo)
             oos.writeUTF(split.splitId());
             oos.writeObject(split.getAgentInfo()); // This will use SnmpAgentInfo's custom serialization
             return baos.toByteArray();
-            
+        
         }
     }
 
@@ -54,14 +56,16 @@ public class SnmpSourceSplitSerializer implements SimpleVersionedSerializer<Snmp
 
         }
         try (ByteArrayInputStream bais = new ByteArrayInputStream(serialized);
-            ObjectInputStream ois = new ObjectInputStream(bais)) {
 
-            String splitId = ois.readUTF();
+        ObjectInputStream ois = new ObjectInputStream(bais)) {
+
+            String splitId          = ois.readUTF();
             SnmpAgentInfo agentInfo = (SnmpAgentInfo) ois.readObject(); // This will use SnmpAgentInfo's custom deserialization
             
             return new SnmpSourceSplit(splitId, agentInfo);
 
         } catch (ClassNotFoundException e) {
+
             // Wrap in a RuntimeException as SimpleVersionedSerializer.deserialize doesn't declare ClassNotFoundException
             throw new RuntimeException("Failed to deserialize SnmpSourceSplit due to ClassNotFoundException.", e);
 

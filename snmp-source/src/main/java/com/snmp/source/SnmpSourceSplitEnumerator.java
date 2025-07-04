@@ -67,7 +67,7 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
         this.remainingSplits    = new ConcurrentLinkedQueue<>();
         this.assignedSplits     = new HashSet<>();
         
-        LOG.debug("{} SnmpSourceSplitEnumerator: Constructor called (fresh start). Number of agents: {}.",
+        LOG.debug("{} SnmpSourceSplitEnumerator(): Constructor called (fresh start). Number of agents: {}.",
             Thread.currentThread().getName(),
             snmpAgentInfoList.size()
         );
@@ -81,6 +81,7 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
      * @param restoredSplits The list of splits restored from a checkpoint.
      */
     public SnmpSourceSplitEnumerator(
+
             SplitEnumeratorContext<SnmpSourceSplit> context,
             List<SnmpAgentInfo> snmpAgentInfoList,
             List<SnmpSourceSplit> restoredSplits) {
@@ -88,7 +89,7 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
         // Call the primary constructor for common initialization
         this(context, snmpAgentInfoList); 
         
-        LOG.debug("{} SnmpSourceSplitEnumerator: Constructor called (restoring state). Restoring {} splits.",
+        LOG.debug("{} SnmpSourceSplitEnumerator(): Constructor called (restoring state). Restoring {} splits.",
             Thread.currentThread().getName(),
             restoredSplits.size()
         );
@@ -100,7 +101,8 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
     @Override
     public void start() {
-        LOG.debug("{} SnmpSourceSplitEnumerator: start() called.", 
+
+        LOG.debug("{} SnmpSourceSplitEnumerator(): start() called.", 
             Thread.currentThread().getName()
         );
 
@@ -111,7 +113,7 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
                 String splitId = agentInfo.getHost() + ":" + agentInfo.getPort();
                 remainingSplits.offer(new SnmpSourceSplit(splitId, agentInfo));
 
-                LOG.debug("{} SnmpSourceSplitEnumerator: Created split {}.", 
+                LOG.debug("{} SnmpSourceSplitEnumerator(): Created split {}.", 
                     Thread.currentThread().getName(),
                     splitId
                 );
@@ -122,14 +124,14 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
             (Callable<Void>) this::discoverUnassignedSplits,
             (Void result, Throwable error) -> {
                 if (error != null) {
-                    LOG.error("{} SnmpSourceSplitEnumerator: Error during async split discovery: {} {}", 
+                    LOG.error("{} SnmpSourceSplitEnumerator(): Error during async split discovery: {} {}", 
                         Thread.currentThread().getName(), 
                         error.getMessage(), 
                         error
                     );
                 
                 } else {
-                    LOG.debug("{} SnmpSourceSplitEnumerator: Async split discovery complete.", 
+                    LOG.debug("{} SnmpSourceSplitEnumerator(): Async split discovery complete.", 
                         Thread.currentThread().getName()
                     );
                 }
@@ -138,14 +140,15 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
     }
 
     private Void discoverUnassignedSplits() throws Exception {
-        LOG.debug("{} SnmpSourceSplitEnumerator: discoverUnassignedSplits() called.", 
+
+        LOG.debug("{} SnmpSourceSplitEnumerator(): discoverUnassignedSplits() called.", 
             Thread.currentThread().getName()
         );
 
         Set<Integer> readers = context.registeredReaders().keySet();
 
         if (readers.isEmpty()) {
-            LOG.warn("{} SnmpSourceSplitEnumerator: No readers registered yet. Waiting for readers to connect.", 
+            LOG.warn("{} SnmpSourceSplitEnumerator(): No readers registered yet. Waiting for readers to connect.", 
                 Thread.currentThread().getName()
             );
             return null;
@@ -171,7 +174,7 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
             assignments.computeIfAbsent(targetReader, k -> new ArrayList<>()).add(split);
             assignedSplits.add(split); // Keep track of assigned splits
 
-            LOG.info("{} SnmpSourceSplitEnumerator: Assigned split {} to reader {}.", 
+            LOG.info("{} SnmpSourceSplitEnumerator(): Assigned split {} to reader {}.", 
                 Thread.currentThread().getName(),
                 split.splitId(), 
                 targetReader
@@ -195,7 +198,8 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
     @Override
     public void handleSplitRequest(int subtaskID, String requesterHostname) {
-        LOG.debug("{} SnmpSourceSplitEnumerator: handleSplitRequest() from subtask {} on {}.", 
+
+        LOG.debug("{} SnmpSourceSplitEnumerator(): handleSplitRequest() from subtask {} on {}.", 
             Thread.currentThread().getName(),
             subtaskID, 
             requesterHostname
@@ -209,14 +213,14 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
             context.assignSplits(new SplitsAssignment<>(assignments));
             assignedSplits.add(split);
 
-            LOG.info("{} SnmpSourceSplitEnumerator: Assigned requested split {} to subtask {}.", 
+            LOG.info("{} SnmpSourceSplitEnumerator(): Assigned requested split {} to subtask {}.", 
                 Thread.currentThread().getName(),
                 split.splitId(), 
                 subtaskID
             );
 
         } else {
-            LOG.warn("{} SnmpSourceSplitEnumerator: No more splits available for subtask {}.", 
+            LOG.warn("{} SnmpSourceSplitEnumerator(): No more splits available for subtask {}.", 
                 Thread.currentThread().getName(),
                 subtaskID
             );
@@ -227,7 +231,8 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
     @Override
     public void addSplitsBack(List<SnmpSourceSplit> splits, int subtaskID) {
-        LOG.warn("{} SnmpSourceSplitEnumerator: Add splits back from subtask {}. Splits: {}", 
+
+        LOG.warn("{} SnmpSourceSplitEnumerator(): Add splits back from subtask {}. Splits: {}", 
             Thread.currentThread().getName(), 
             subtaskID, 
             splits.size()
@@ -240,14 +245,14 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
             (Callable<Void>) this::discoverUnassignedSplits,
             (Void result, Throwable error) -> {
                 if (error != null) {
-                    LOG.error("{} SnmpSourceSplitEnumerator: Error during re-assignment after addSplitsBack: {} {}", 
+                    LOG.error("{} SnmpSourceSplitEnumerator(): Error during re-assignment after addSplitsBack: {} {}", 
                         Thread.currentThread().getName(), 
                         error.getMessage(), 
                         error
                     );
 
                 } else {
-                    LOG.debug("{} SnmpSourceSplitEnumerator: Re-assignment after addSplitsBack complete.", 
+                    LOG.debug("{} SnmpSourceSplitEnumerator(): Re-assignment after addSplitsBack complete.", 
                         Thread.currentThread().getName());
 
                 }
@@ -257,7 +262,8 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
     @Override
     public void addReader(int subtaskID) {
-        LOG.debug("{} SnmpSourceSplitEnumerator: Reader {} registered.", 
+        
+        LOG.debug("{} SnmpSourceSplitEnumerator(): Reader {} registered.", 
             Thread.currentThread().getName(),
             subtaskID
         );
@@ -266,7 +272,8 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
             (Callable<Void>) this::discoverUnassignedSplits,
             (Void result, Throwable error) -> {
                 if (error != null) {
-                    LOG.error("{} SnmpSourceSplitEnumerator: Error during assignment to new reader {}: {} {}", 
+
+                    LOG.error("{} SnmpSourceSplitEnumerator(): Error during assignment to new reader {}: {} {}", 
                         Thread.currentThread().getName(), 
                         subtaskID, 
                         error.getMessage(), 
@@ -274,7 +281,7 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
                     );
                
                 } else {
-                    LOG.debug("{} SnmpSourceSplitEnumerator: Assignment to new reader {} complete.", 
+                    LOG.debug("{} SnmpSourceSplitEnumerator(): Assignment to new reader {} complete.", 
                         Thread.currentThread().getName(),
                         subtaskID
                     );
@@ -285,7 +292,8 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
 
     @Override
     public void close() {
-        LOG.debug("{} SnmpSourceSplitEnumerator: close() called.", 
+
+        LOG.debug("{} SnmpSourceSplitEnumerator(): close() called.", 
             Thread.currentThread().getName()
         );
 
@@ -296,7 +304,7 @@ public class SnmpSourceSplitEnumerator implements SplitEnumerator<SnmpSourceSpli
     @Override
     public List<SnmpSourceSplit> snapshotState(long checkpointId) throws Exception {
 
-        LOG.debug("{} SnmpSourceSplitEnumerator: snapshotState() for checkpointId {}. Remaining splits: {}. Assigned splits: {}",
+        LOG.debug("{} SnmpSourceSplitEnumerator(): snapshotState() for checkpointId {}. Remaining splits: {}. Assigned splits: {}",
             Thread.currentThread().getName(),
             checkpointId,
             remainingSplits.size(),

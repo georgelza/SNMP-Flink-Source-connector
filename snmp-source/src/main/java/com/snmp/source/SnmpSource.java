@@ -65,17 +65,17 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
             throw new IllegalArgumentException("SNMP agent info list cannot be empty.");
         }
 
-        LOG.debug("{} SnmpSource: Initialized with {} SNMP agents.",
+        LOG.debug("{} SnmpSource(): Initialized with {} SNMP agents.",
             Thread.currentThread().getName(),
             snmpAgentInfoList.size()
         );
 
-        System.out.println("SnmpSource: Initialized with " 
-            + snmpAgentInfoList.size()
-            + " agents"
-            + " for Thread: " + Thread.currentThread().getName() 
-            + " (Direct System.out)"
-        );
+        // System.out.println("SnmpSource(): Initialized with " 
+        //     + snmpAgentInfoList.size()
+        //     + " agents"
+        //     + " for Thread: " + Thread.currentThread().getName() 
+        //     + " (Direct System.out)"
+        // );
 
     }
 
@@ -88,14 +88,14 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     @Override
     public SourceReader<RowData, SnmpSourceSplit> createReader(SourceReaderContext readerContext) {
 
-        LOG.debug("{} SnmpSource: createReader() called.",
+        LOG.debug("{} SnmpSource(): createReader() called.",
             Thread.currentThread().getName()
         );
 
-        System.out.println("SnmpSource: createReader() called" 
-            + " for Thread: " + Thread.currentThread().getName() 
-            + " (Direct System.out)"
-        );
+        // System.out.println("SnmpSource(): createReader() called" 
+        //     + " for Thread: " + Thread.currentThread().getName() 
+        //     + " (Direct System.out)"
+        // );
 
         return new SnmpSourceReader(readerContext, producedDataType);
     }
@@ -111,7 +111,7 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     public SplitEnumerator<SnmpSourceSplit, List<SnmpSourceSplit>> createEnumerator(
             SplitEnumeratorContext<SnmpSourceSplit> enumContext) {
 
-        LOG.debug("{} SnmpSource: createEnumerator() called for initial setup.",
+        LOG.debug("{} SnmpSource(): createEnumerator() called for initial setup.",
             Thread.currentThread().getName()
         );
 
@@ -132,7 +132,7 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
             SplitEnumeratorContext<SnmpSourceSplit> enumContext,
             List<SnmpSourceSplit> checkpointedState) throws IOException {
 
-        LOG.debug("{} SnmpSource: restoreEnumerator() called with {} splits.",
+        LOG.debug("{} SnmpSource(): restoreEnumerator() called with {} splits.",
             Thread.currentThread().getName(),
             checkpointedState.size()
         );
@@ -149,7 +149,7 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     @Override
     public Boundedness getBoundedness() {
 
-        LOG.debug("{} SnmpSource: getBoundedness() called. Returning CONTINUOUS_UNBOUNDED.",
+        LOG.debug("{} SnmpSource(): getBoundedness() called. Returning CONTINUOUS_UNBOUNDED.",
             Thread.currentThread().getName()
         );
 
@@ -164,7 +164,7 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     @Override
     public SimpleVersionedSerializer<SnmpSourceSplit> getSplitSerializer() {
 
-        LOG.debug("{} SnmpSource: getSplitSerializer() called.",
+        LOG.debug("{} SnmpSource(): getSplitSerializer() called.",
             Thread.currentThread().getName()
         );
 
@@ -179,7 +179,7 @@ public class SnmpSource implements Source<RowData, SnmpSourceSplit, List<SnmpSou
     @Override
     public SimpleVersionedSerializer<List<SnmpSourceSplit>> getEnumeratorCheckpointSerializer() {
 
-        LOG.debug("{} SnmpSource: getEnumeratorCheckpointSerializer() called.",
+        LOG.debug("{} SnmpSource(): getEnumeratorCheckpointSerializer() called.",
             Thread.currentThread().getName()
         );
 

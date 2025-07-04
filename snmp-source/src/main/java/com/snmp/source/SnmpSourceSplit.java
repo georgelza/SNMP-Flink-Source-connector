@@ -85,6 +85,7 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
 
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
+
         SnmpSourceSplit that = (SnmpSourceSplit) o;
 
         return splitId.equals(that.splitId) && agentInfo.equals(that.agentInfo);
@@ -99,8 +100,8 @@ public class SnmpSourceSplit implements SourceSplit, Serializable { // Implement
     public String toString() {
         
         return "SnmpSourceSplit{"   + '\'' +
-                "   splitId=     '" + splitId + '\'' +
-                "  ,agentInfo=    " + agentInfo + '\'' +
+                " splitId='"        + splitId + '\'' +
+                ", agentInfo="      + agentInfo + '\'' +
                 "}";
     }
 }

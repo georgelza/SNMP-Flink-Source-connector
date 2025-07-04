@@ -38,12 +38,6 @@ public class SnmpPollingJob {
 
     public static void main(String[] args) throws Exception {
 
-        System.out.println("SnmpPollingJob().Main() Method called."
-            + " for Thread " + Thread.currentThread().getName()
-            + " (Direct System.out)"
-        );
-        
-
         // Parse command-line arguments for catalog, database, and the table to select from
         String catalogName;
         String databaseName;
@@ -55,16 +49,7 @@ public class SnmpPollingJob {
             databaseName          = args[1];
             tableToSelectFromName = args[2];
             fullTableName         = String.format("%s.%s.%s", catalogName, databaseName, tableToSelectFromName);
-        
-            System.out.println("SnmpPollingJob().Main()"
-                + " catalog: "  + catalogName
-                + " database: " + databaseName
-                + " table: "    + tableToSelectFromName
-                + " for Thread "
-                + Thread.currentThread().getName()
-                + " (Direct System.out)"
-            );
-
+    
             LOG.debug("{} SnmpPollingJob().Main(): Arguments received: Catalog='{}', Database='{}', Table to Select From='{}'",
                 Thread.currentThread().getName(),
                 catalogName,
@@ -95,10 +80,12 @@ public class SnmpPollingJob {
         try {
             tableEnv.useCatalog(catalogName);
             tableEnv.useDatabase(databaseName);
-            LOG.debug("{}: Flink TableEnvironment configured to use Catalog: '{}' and Database: '{}'.", 
+
+            LOG.debug("{}: Flink TableEnvironment configured to use: '{}.{}.{}", 
                 Thread.currentThread().getName(),
                 catalogName, 
-                databaseName
+                databaseName,
+                tableToSelectFromName
             );
             
         } catch (Exception e) {
@@ -117,12 +104,6 @@ public class SnmpPollingJob {
         LOG.debug("{} SnmpPollingJob().Main(): Starting Flink job to continuously read from {}...", 
             Thread.currentThread().getName(),   
             fullTableName
-        );
-        
-        System.out.println("SnmpPollingJob().Main():"
-            + " Starting Flink job to continuously read from" + fullTableName
-            + " for Thread "                                  + Thread.currentThread().getName()
-            + " (Direct System.out)"
         );
 
         tableEnv.toDataStream(resultTable, Row.class).print();

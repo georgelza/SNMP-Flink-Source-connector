@@ -261,20 +261,20 @@ public class SnmpAgentInfo implements Serializable {
     @Override
     public String toString() {
         return "SnmpAgentInfo{" +
-                "    host=            '" + host + '\'' +
-                "   ,port=             " + port +
-                "   ,snmpVersion=     '" + snmpVersion + '\'' +
-                "   ,communityString= '" + "*********" + '\'' +
-                "   ,userName=        '" + userName + '\'' +    
-                "   ,password=        '" + "*********" + '\'' + 
-                "   ,authProtocol=    '" + authProtocol + '\'' + 
-                "   ,privProtocol=    '" + privProtocol + '\'' +
-                "   ,pollMode=        '" + pollMode + '\'' +
-                "   ,oids=             " + oids +
-                "   ,intervalSeconds=  " + intervalSeconds +
-                "   ,timeoutSeconds=   " + timeoutSeconds +
-                "   ,retries=          " + retries +
-                "   ,deviceId=        '" + deviceId + '\'' +
+                " host='"               + host + '\'' +
+                ",port="                + port +
+                ",snmpVersion='"        + snmpVersion + '\'' +
+                ",communityString='"    + "*********" + '\'' +
+                ",userName='"           + userName + '\'' +    
+                ",password='"           + "*********" + '\'' + 
+                ",authProtocol='"       + authProtocol + '\'' + 
+                ",privProtocol='"       + privProtocol + '\'' +
+                ",pollMode='"           + pollMode + '\'' +
+                ",oids="                + oids +
+                ",intervalSeconds= "    + intervalSeconds +
+                ",timeoutSeconds="      + timeoutSeconds +
+                ",retries="             + retries +
+                ",deviceId='"           + deviceId + '\'' +
                 '}';
     }
 }

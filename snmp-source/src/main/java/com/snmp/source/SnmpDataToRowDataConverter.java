@@ -58,8 +58,8 @@ public class SnmpDataToRowDataConverter {
             return null;
         }
 
-        RowType rowType = (RowType) producedDataType.getLogicalType();
-        GenericRowData rowData = new GenericRowData(rowType.getFieldCount());
+        RowType rowType         = (RowType) producedDataType.getLogicalType();
+        GenericRowData rowData  = new GenericRowData(rowType.getFieldCount());
 
         // Map SnmpData fields to RowData based on the expected schema order from 2.1.creSNMPSource.sql
         // Columns in 2.1.creSNMPSource.sql:
@@ -69,10 +69,9 @@ public class SnmpDataToRowDataConverter {
         // the fields that come directly from SnmpData.
 
         for (int i = 0; i < rowType.getFieldCount(); i++) {
+
             String fieldName = rowType.getFields().get(i).getName();
            
-           // LogicalType fieldType = rowType.getFields().get(i).getType(); // Not directly used in setting, but useful for debugging
-
             try {
                 switch (fieldName) {
                     case "device_id":
@@ -80,41 +79,62 @@ public class SnmpDataToRowDataConverter {
                             rowData.setField(i, StringData.fromString(snmpData.getDeviceId()));
                         } else {
                             rowData.setField(i, null);
-                            LOG.warn("SnmpData 'deviceId' is null for RowData field '{}'. Setting to NULL.", fieldName);
+                            LOG.warn("{} SnmpDataToRowDataConverter() convert() - SnmpData 'deviceId' is null for RowData field '{}'. Setting to NULL.", 
+                                Thread.currentThread().getName(),
+                                fieldName
+                            );
                         }
                         break;
+
                     case "metric_oid":
                         if (snmpData.getMetricOid() != null) {
                             rowData.setField(i, StringData.fromString(snmpData.getMetricOid()));
+
                         } else {
                             rowData.setField(i, null);
-                            LOG.warn("SnmpData 'metricOid' is null for RowData field '{}'. Setting to NULL.", fieldName);
+                            LOG.warn("{} SnmpDataToRowDataConverter() convert() - SnmpData 'metricOid' is null for RowData field '{}'. Setting to NULL.", 
+                                Thread.currentThread().getName(),
+                                fieldName
+                            );
                         }
                         break;
+
                     case "metric_value":
                         if (snmpData.getMetricValue() != null) {
                             rowData.setField(i, StringData.fromString(snmpData.getMetricValue()));
                         } else {
                             rowData.setField(i, null);
-                            LOG.warn("SnmpData 'metricValue' is null for RowData field '{}'. Setting to NULL.", fieldName);
+                            LOG.warn("{} SnmpDataToRowDataConverter() convert() - SnmpData 'metricValue' is null for RowData field '{}'. Setting to NULL.", 
+                                Thread.currentThread().getName(),
+                                fieldName
+                            );
                         }
                         break;
+
                     case "data_type":
                         if (snmpData.getDataType() != null) {
                             rowData.setField(i, StringData.fromString(snmpData.getDataType()));
                         } else {
                             rowData.setField(i, null);
-                            LOG.warn("SnmpData 'dataType' is null for RowData field '{}'. Setting to NULL.", fieldName);
+                            LOG.warn("{} SnmpDataToRowDataConverter() convert() - SnmpData 'dataType' is null for RowData field '{}'. Setting to NULL.", 
+                                Thread.currentThread().getName(),
+                                fieldName
+                            );
                         }
                         break;
+
                     case "instance_identifier":
                         if (snmpData.getInstanceIdentifier() != null) {
                             rowData.setField(i, StringData.fromString(snmpData.getInstanceIdentifier()));
                         } else {
                             rowData.setField(i, null);
-                            LOG.warn("SnmpData 'instanceIdentifier' is null for RowData field '{}'. Setting to NULL.", fieldName);
+                            LOG.warn("{} SnmpDataToRowDataConverter() convert() - SnmpData 'instanceIdentifier' is null for RowData field '{}'. Setting to NULL.", 
+                                Thread.currentThread().getName(),
+                                fieldName
+                            );
                         }
                         break;
+
                     case "ts":
                         LocalDateTime ts = snmpData.getTs();
                         if (ts != null) {
@@ -123,23 +143,37 @@ public class SnmpDataToRowDataConverter {
                             rowData.setField(i, TimestampData.fromLocalDateTime(ts));
                         } else {
                             rowData.setField(i, null);
-                            LOG.warn("SnmpData 'ts' is null for RowData field '{}'. Setting to NULL.", fieldName);
+                            LOG.warn("{} SnmpDataToRowDataConverter() convert() - SnmpData 'ts' is null for RowData field '{}'. Setting to NULL.", 
+                                Thread.currentThread().getName(),
+                                fieldName
+                            );
                         }
                         break;
+                        
                     case "PROC_TIME":
                         // PROC_TIME is a Flink internal computed column (PROCTIME()), do not set it here.
                         // Flink runtime will handle its population.
                         rowData.setField(i, null); // Setting to null here is fine, Flink will overwrite.
                         break;
+
                     default:
                         // For any other unexpected field, set to null and log a warning
                         rowData.setField(i, null);
-                        LOG.warn("Unexpected field '{}' encountered in producedDataType. Setting to NULL.", fieldName);
+                        LOG.warn("{} SnmpDataToRowDataConverter() convert() - Unexpected field '{}' encountered in producedDataType. Setting to NULL.", 
+                            Thread.currentThread().getName(),
+                            fieldName
+                        );
                         break;
+
                 }
             } catch (Exception e) {
-                LOG.error("Error converting field '{}' to RowData for SnmpData: {}. Setting to NULL. Error: {}",
-                    fieldName, snmpData.toString(), e.getMessage(), e);
+                LOG.error("{} SnmpDataToRowDataConverter() convert() - Error converting field '{}' to RowData for SnmpData: {}. Setting to NULL. Error: {} {}",
+                    Thread.currentThread().getName(),
+                    fieldName, 
+                    snmpData.toString(), 
+                    e.getMessage(), 
+                    e
+                );
                 rowData.setField(i, null);
             }
         }
