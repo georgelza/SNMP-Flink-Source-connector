@@ -1,16 +1,10 @@
-# MVP: SNMP Flink Source connector (scraper)
-
-
-Bypass most of the below, just go to `devlab0/README.md`
-
+# MVP: Apache Flink SNMP Source connector (scraper)
 
 ## Overview
 
-Idea is to build a SNMP source connector that can scrape agents based on IP:port:Method and OIDs
+Idea is to build a SNMP source connector that can scrape targets/agents based on IP:port and OIDs using a method.
 
-Executed as either a Get or Walk based on OIDs or Root OID to Walk from.
-
-The MIB files will be loaded into either a MySql. PostgreSQL or REDIS in memory DB for joining/enriching the data.
+Executed as either a GET based on OIDs or WALK starting from a root OID.
 
 
 ToDo: Need to come up with solution how to handle inbound SNMP Traps.
@@ -21,7 +15,7 @@ ToDo: Need to come up with solution how to handle inbound SNMP Traps.
 This can be done by either running the below SQL statement against the created table or by submitting the below job in the job manager.
 
 ```SQL
-Select * from default_catalog.snmp.snmp_poll_data#;
+Select * from hive.snmp.snmp_poll_data#;
 ```
 
 
@@ -48,10 +42,6 @@ snmpget -v1 -c passsword 172.16.10.24 sysDescr.0
 ### References
 
 - [Gettin Started with snmp](https://www.easysnmp.com/tutorial/getting-snmp-data/)
-
-
-### Credits:
-
 
 
 ### By:
