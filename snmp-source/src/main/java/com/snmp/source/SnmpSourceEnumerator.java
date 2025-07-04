@@ -13,7 +13,7 @@
 /
 /       GIT Repo        :   https://github.com/georgelza/SNMP-Flink-Source-connector
 /
-/       Blog            :\\\
+/       Blog            :
 /
 *///////////////////////////////////////////////////////////////////////////////////////////////////////
 

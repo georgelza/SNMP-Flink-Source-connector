@@ -1,12 +1,11 @@
 -- The IP is used to lookup snmp_device_info.device_id to then retrieve the device_id which is inserted with the data.
 CREATE TABLE hive.snmp.snmp_poll_data1 (
-     device_id                VARCHAR(255)                       -- Foreign key referencing snmp_device_info.device_id
-    ,metric_oid               VARCHAR(255)                       -- Object Identifier (OID) of the polled metric
-    ,metric_value             VARCHAR(1000)                      -- The value of the metric (store as string for flexibility)
-    ,data_type                VARCHAR(50)                        -- The SNMP data type (e.g., "Gauge", "Counter", "Integer", "OctetString")
-    ,instance_identifier      VARCHAR(255)                       -- For table-based OIDs (e.g., interface index)
-    ,ts                       VARCHAR(255)                       -- Timestamp when the data was collected/scraped
---   ,WATERMARK FOR ts AS ts - INTERVAL '5' SECONDS               -- Adjust watermark delay as needed - event time
+     device_id                VARCHAR(255)   NULL                -- Foreign key referencing snmp_device_info.device_id
+    ,metric_oid               VARCHAR(255)   NULL                -- Object Identifier (OID) of the polled metric
+    ,metric_value             VARCHAR(1000)  NULL                -- The value of the metric (store as string for flexibility)
+    ,data_type                VARCHAR(50)    NULL                -- The SNMP data type (e.g., "Gauge", "Counter", "Integer", "OctetString")
+    ,instance_identifier      VARCHAR(255)   NULL                -- For table-based OIDs (e.g., interface index)
+    ,ts                       TIMESTAMP(3)   NULL                -- Timestamp when the data was collected/scraped
 ) WITH (
      'connector'                    = 'snmp'
     ,'target'                       = '172.16.10.2:161'         -- snmp agent:port
@@ -21,13 +20,12 @@ CREATE TABLE hive.snmp.snmp_poll_data1 (
 
 
 CREATE TABLE hive.snmp.snmp_poll_data2 (
-     device_id                VARCHAR(255)                       -- Foreign key referencing snmp_device_info.device_id
-    ,metric_oid               VARCHAR(255)                       -- Object Identifier (OID) of the polled metric
-    ,metric_value             VARCHAR(1000)                      -- The value of the metric (store as string for flexibility)
-    ,data_type                VARCHAR(50)                        -- The SNMP data type (e.g., "Gauge", "Counter", "Integer", "OctetString")
-    ,instance_identifier      VARCHAR(255)                       -- For table-based OIDs (e.g., interface index)
-    ,ts                       VARCHAR(255)                       -- Timestamp when the data was collected/scraped
---   ,WATERMARK FOR ts AS ts - INTERVAL '5' SECONDS               -- Adjust watermark delay as needed - event time
+     device_id                VARCHAR(255)   NULL                -- Foreign key referencing snmp_device_info.device_id
+    ,metric_oid               VARCHAR(255)   NULL                -- Object Identifier (OID) of the polled metric
+    ,metric_value             VARCHAR(1000)  NULL                -- The value of the metric (store as string for flexibility)
+    ,data_type                VARCHAR(50)    NULL                -- The SNMP data type (e.g., "Gauge", "Counter", "Integer", "OctetString")
+    ,instance_identifier      VARCHAR(255)   NULL                -- For table-based OIDs (e.g., interface index)
+    ,ts                       TIMESTAMP(3)   NULL                -- Timestamp when the data was collected/scraped
 ) WITH (
      'connector'                    = 'snmp'
     ,'target'                       = '172.16.10.2:161'         -- snmp 1 agent:port
@@ -42,13 +40,12 @@ CREATE TABLE hive.snmp.snmp_poll_data2 (
 
 
 CREATE TABLE hive.snmp.snmp_poll_data3 (
-     device_id                VARCHAR(255)                       -- Foreign key referencing snmp_device_info.device_id
-    ,metric_oid               VARCHAR(255)                       -- Object Identifier (OID) of the polled metric
-    ,metric_value             VARCHAR(1000)                      -- The value of the metric (store as string for flexibility)
-    ,data_type                VARCHAR(50)                        -- The SNMP data type (e.g., "Gauge", "Counter", "Integer", "OctetString")
-    ,instance_identifier      VARCHAR(255)                       -- For table-based OIDs (e.g., interface index)
-    ,ts                       VARCHAR(255)                       -- Timestamp when the data was collected/scraped
---   ,WATERMARK FOR ts AS ts - INTERVAL '5' SECONDS               -- Adjust watermark delay as needed - event time
+     device_id                VARCHAR(255)   NULL                -- Foreign key referencing snmp_device_info.device_id
+    ,metric_oid               VARCHAR(255)   NULL                -- Object Identifier (OID) of the polled metric
+    ,metric_value             VARCHAR(1000)  NULL                -- The value of the metric (store as string for flexibility)
+    ,data_type                VARCHAR(50)    NULL                -- The SNMP data type (e.g., "Gauge", "Counter", "Integer", "OctetString")
+    ,instance_identifier      VARCHAR(255)   NULL                -- For table-based OIDs (e.g., interface index)
+    ,ts                       TIMESTAMP(3)   NULL                -- Timestamp when the data was collected/scraped
 ) WITH (
      'connector'                    = 'snmp'
     ,'target'                       = '172.16.10.2:161,172.16.10.3:161' -- snmp 1 agent:port
@@ -63,13 +60,12 @@ CREATE TABLE hive.snmp.snmp_poll_data3 (
 
 --
 CREATE TABLE hive.snmp.snmp_poll_data4 (
-     device_id                VARCHAR(255)                       -- Foreign key referencing snmp_device_info.device_id
-    ,metric_oid               VARCHAR(255)                       -- Object Identifier (OID) of the polled metric
-    ,metric_value             VARCHAR(1000)                      -- The value of the metric (store as string for flexibility)
-    ,data_type                VARCHAR(50)                        -- The SNMP data type (e.g., "Gauge", "Counter", "Integer", "OctetString")
-    ,instance_identifier      VARCHAR(255)                       -- For table-based OIDs (e.g., interface index)
-    ,ts                       VARCHAR(255)                       -- Timestamp when the data was collected/scraped
---   ,WATERMARK FOR ts AS ts - INTERVAL '5' SECONDS               -- Adjust watermark delay as needed - event time
+     device_id                VARCHAR(255)   NULL                -- Foreign key referencing snmp_device_info.device_id
+    ,metric_oid               VARCHAR(255)   NULL                -- Object Identifier (OID) of the polled metric
+    ,metric_value             VARCHAR(1000)  NULL                -- The value of the metric (store as string for flexibility)
+    ,data_type                VARCHAR(50)    NULL                -- The SNMP data type (e.g., "Gauge", "Counter", "Integer", "OctetString")
+    ,instance_identifier      VARCHAR(255)   NULL                -- For table-based OIDs (e.g., interface index)
+    ,ts                       TIMESTAMP(3)   NULL                -- Timestamp when the data was collected/scraped
 ) WITH (
      'connector'                    = 'snmp'
     ,'target'                       = '172.16.10.2:161,172.16.10.3:161'     -- snmp agent:port

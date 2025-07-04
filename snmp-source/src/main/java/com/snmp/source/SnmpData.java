@@ -53,13 +53,12 @@ public class SnmpData implements Serializable {
      * @param ts                    The timestamp when the data was collected.
      */
     public SnmpData(
-        String deviceId,
-        String metricOid,
-        String metricValue,
-        String dataType,
-        String instanceIdentifier,
-        LocalDateTime ts)
-    {
+            String          deviceId,
+            String          metricOid,
+            String          metricValue,
+            String          dataType,
+            String          instanceIdentifier,
+            LocalDateTime   ts) {
         this.deviceId           = deviceId;
         this.metricOid          = metricOid;
         this.metricValue        = metricValue;
@@ -136,7 +135,8 @@ public class SnmpData implements Serializable {
     @Override
     public int hashCode() {
 
-        return Objects.hash(deviceId, 
+        return Objects.hash(
+            deviceId, 
             metricOid, 
             metricValue, 
             dataType, 
@@ -148,12 +148,12 @@ public class SnmpData implements Serializable {
     public String toString() {
 
         return "SnmpData{"  +
-               "   deviceId=           '" + deviceId + '\'' +
-               ",  metricOid=          '" + metricOid + '\'' +
-               ",  metricValue=        '" + metricValue + '\'' +
-               ",  dataType=           '" + dataType + '\'' +
-               ",  instanceIdentifier= '" + instanceIdentifier + '\'' +
-               ",  ts=                  " + ts +
+               "deviceId='" + deviceId + '\'' +
+               ", metricOid='" + metricOid + '\'' +
+               ", metricValue='" + metricValue + '\'' +
+               ", dataType='" + dataType + '\'' +
+               ", instanceIdentifier='" + instanceIdentifier + '\'' +
+               ", ts=" + ts +
                "}";
     }
 }
