@@ -55,7 +55,16 @@ snmpwalk -v1 -c passsword <Agent IP> 1.3.6.1.2.1
 
 ### ToDo
 
-1. Complete the SNMPv3 Auth code.
+1. Complete the stand alone MIB Loader (See below)
+
+    Well this will be first up. This will be a standalone Java package, as mentioned above, used to load MIB files into a table structure to be joined with during select statements... Guess I will tackle this first... ;) 
+    
+    This package will be deployed/run on our **Apache Flink** cluster outputting the data to a designated **Apache Flink** table.
+
+    This functionality will be created as a second seperate jar file to be located in `./snmp-mib-loader/target/`
+
+
+2. Complete the SNMPv3 Auth code.
 
     Not much to figure out, just need a **SNMPv3** compliant end point and then work through all the red lines in the code.
     
@@ -67,13 +76,6 @@ snmpwalk -v1 -c passsword <Agent IP> 1.3.6.1.2.1
     Not sure... thinking some form of API end point.
 
     See: [SNMP-Traps](https://www.logicmonitor.com/blog/snmp-traps)
-
-
-3. Complete the stand alone MIB Loader (See below)
-
-    Well this will be first up. This will be a standalone Java package, as mentioned above, used to load MIB files into a table structure to be joined with during select statements... Guess I will tackle this first... ;) 
-    
-    This package will be deployed/run on our **Apache Flink** cluster outputting the data to a designated **Apache Flink** table.
 
 
 ### W.R.T. => The SNMP MIB Loader
