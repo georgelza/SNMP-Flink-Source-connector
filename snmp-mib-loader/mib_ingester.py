@@ -64,7 +64,7 @@ import json
 import argparse
 from pysnmp.smi import builder, view, error
 from datetime import datetime # For timestamp in logs
-from utils import logger # Import our custom logger from utils.py
+from utils import * # Import our custom logger from utils.py
 
 # Initialize logger instance globally for this script
 LOG_TAG             = 'snmp_mib_ingester'
@@ -73,7 +73,6 @@ CONSOLE_DEBUG_LEVEL = 1                                                 # INFO
 FILE_DEBUG_LEVEL    = 0                                                 # DEBUG
 CUSTOM_LOG_FORMAT   = f'{LOG_TAG}, %(asctime)s, %(message)s'            # Custom format: "{LOG_TAG}, {time}, message"
 logger_instance     = logger(LOG_FILE, CONSOLE_DEBUG_LEVEL, FILE_DEBUG_LEVEL, CUSTOM_LOG_FORMAT)
-
 
 # Conditional imports for database connectors
 # These will need to be installed:
@@ -104,8 +103,6 @@ except ImportError:
     logger_instance.warning("redis not found. Redis database option will not be available.")
 
 # end try
-
-from utils import *
 
 
 def parse_mib_files(mib_file_path=None, mib_directory_path=None, mib_dirs=None, logger_instance=None):
