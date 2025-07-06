@@ -67,12 +67,12 @@ from datetime import datetime # For timestamp in logs
 from utils import logger # Import our custom logger from utils.py
 
 # Initialize logger instance globally for this script
-LOG_FILE = "mib_ingester.log"
-CONSOLE_DEBUG_LEVEL = 1 # INFO
-FILE_DEBUG_LEVEL = 0    # DEBUG
-# Custom format: "mib-loader, {time}, message"
-CUSTOM_LOG_FORMAT = 'mib-loader, %(asctime)s, %(message)s'
-logger_instance = logger(LOG_FILE, CONSOLE_DEBUG_LEVEL, FILE_DEBUG_LEVEL, CUSTOM_LOG_FORMAT)
+LOG_TAG             = 'snmp_mib_ingester'
+LOG_FILE            = f'{LOG_TAG}.log'
+CONSOLE_DEBUG_LEVEL = 1                                                 # INFO
+FILE_DEBUG_LEVEL    = 0                                                 # DEBUG
+CUSTOM_LOG_FORMAT   = f'{LOG_TAG}, %(asctime)s, %(message)s'            # Custom format: "{CUSTOM_LOG_FORMAT}, {time}, message"
+logger_instance     = logger(LOG_FILE, CONSOLE_DEBUG_LEVEL, FILE_DEBUG_LEVEL, CUSTOM_LOG_FORMAT)
 
 
 # Conditional imports for database connectors
