@@ -59,10 +59,6 @@ snmpwalk -v1 -c passsword <Agent IP> 1.3.6.1.2.1
 
     Well this will be first up. This will be a standalone Java package, as mentioned above, used to load MIB files into a table structure to be joined with during select statements... Guess I will tackle this first... ;) 
     
-    This package will be deployed/run on our **Apache Flink** cluster outputting the data to a designated **Apache Flink** table.
-
-    This functionality will be created as a second seperate jar file to be located in `./snmp-mib-loader/target/`
-
 
 2. Complete the SNMPv3 Auth code.
 

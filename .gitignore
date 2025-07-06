@@ -27,9 +27,8 @@
 .idea/
 ./venv
 .vscode/
-snmp-mib-loader/__pycache__
 
 devlab0/data
-snmp-mib-loader/target
+snmp-mib-loader/__pycache__
 snmp-source/target
 
