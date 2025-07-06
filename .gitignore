@@ -25,10 +25,10 @@
 
 .DS_Store
 .idea/
-./venv
 .vscode/
+venv/
+old/
 
-devlab0/data
 snmp-mib-loader/__pycache__
 snmp-source/target
 

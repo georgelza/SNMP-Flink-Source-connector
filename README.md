@@ -6,6 +6,9 @@ The basic idea is to build a **Apache Flink SNMP source connector** that can scr
 
 The statement will define the "static" structure, combined with the various variables defining what where and how to poll.
 
+The main source connector is located under snmp-source, while the mib loader is located under snmp-bim-loader.
+mib-source is based on java where as the mib-loader is a small Python program.
+
 
 This source connector currently allows the following scenarios.
 
