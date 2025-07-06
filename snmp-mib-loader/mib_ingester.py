@@ -149,6 +149,7 @@ def parse_mib_files(mib_file_path=None, mib_directory_path=None, mib_dirs=None, 
         if os.path.isfile(mib_file_path):
             mib_files_to_load.append(mib_file_path)
             logger_instance.info(f"Loading single MIB file: {mib_file_path}")
+            
         else:
             logger_instance.error(f"Invalid MIB file path: '{mib_file_path}'. File does not exist.")
             return []
@@ -180,6 +181,7 @@ def parse_mib_files(mib_file_path=None, mib_directory_path=None, mib_dirs=None, 
         try:
             mibBuilder.load_modules(mib_module_name)
             logger_instance.info(f"Successfully loaded MIB module: {mib_module_name}")
+            
         except error.MibLoadError as e:
             logger_instance.error(f"Error loading MIB module {mib_module_name} from {mib_file_path}: {e}")
             
@@ -228,6 +230,7 @@ def parse_mib_files(mib_file_path=None, mib_directory_path=None, mib_dirs=None, 
                 
                 elif hasattr(mibVar, 'isColumn') and mibVar.isColumn():
                     oid_type = "column"
+                    
                 elif hasattr(mibVar, 'isNotification') and mibVar.isNotification():
                     oid_type = "notification"
                 
@@ -297,6 +300,7 @@ class DatabaseManager:
                     password= self.password,
                     dbname  = self.dbname
                 )
+                
                 self.connection.autocommit  = True # Auto-commit changes
                 self.cursor                 = self.connection.cursor()
 
@@ -306,10 +310,13 @@ class DatabaseManager:
                     self.cursor.execute(f"SET search_path TO {self.schema}, public;")
                     self.logger.info(f"PostgreSQL search_path set to: {self.schema}, public")
 
+                # end if
             elif self.db_type == 'mysql':
                 if not mysql:
                     raise ImportError("mysql-connector-python is not installed. Cannot connect to MySQL.")
 
+                # end if
+                
                 self.connection = mysql.connector.connect(
                     host        = self.host,
                     port        = self.port,
@@ -325,6 +332,8 @@ class DatabaseManager:
                 if not redis:
                     raise ImportError("redis is not installed. Cannot connect to Redis.")
 
+                #end if
+                
                 self.connection = redis.Redis(
                     host     = self.host,
                     port     = self.port,
