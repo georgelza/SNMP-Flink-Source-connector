@@ -1,4 +1,3 @@
-. ./.pws
 
 python3 mib_ingester.py \
     mibs/SNMPv2-MIB.mib \
