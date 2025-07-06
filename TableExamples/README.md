@@ -10,24 +10,34 @@ Below are the various tables that at a basic level would/coud/should be consider
       - single table multiple oid's
       - multiple tables single oid
       - multiple table multiple oids
-  
+
+
 2. snmp_poll_data_walk.sql
 
     - Various tables to be used for the snmpwalk method
       - single table single root oid.
       - multiple tables with a common single root oid
 
+
 3. snmp_poll_data_auth.sql
 
-    - Some of the above, but with SNMPv3 as snmp.version specified, which means we require:
+    - Same of the above, but for SNMPv3 as set via snmp.version specified, which means we require:
       - snmp.username
       - snmp.password
       - snmp.auth-protocol
       - snmp.priv-protocol
 
+
+The following tables would be pre created in the datastore of choice, to be matched to a source CDC connector which can then to pull/ingest the data into Apache Flink table and pushed into our Apache Fluss table to be available for joning to.
+for postgresql see the conf/snmp.sql script.
+
 4. snmp_device_info_*.sql  
 
-    - a Table listing the variosu device Id's and what they are, where they ar etc.
+    - a Table listing the various device Id's and what they are, where they ar etc.
+      - We will show how to output to:
+        - REDIS
+        - PostgreSQL
+        - MySQL
 
 5. snmp_oid_metadata_*.sql
 

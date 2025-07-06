@@ -1,36 +1,46 @@
 -- PostgreSQL CDC Example
 CREATE TABLE hive_catalog.snmp.snmp_device_info (
-    device_id           VARCHAR(255) PRIMARY KEY NOT ENFORCED,      -- Unique identifier for the device
-    ip_address          VARCHAR(45) NOT NULL,                       -- IP address of the device (IPv4 or IPv6)
-    hostname            VARCHAR(255),                               -- Hostname of the device
-    device_location     VARCHAR(255),                               -- Physical location of the device
-    device_type         VARCHAR(100),                               -- Type of device (e.g., "router", "switch", "server")
-    vendor              VARCHAR(100),                               -- Device vendor (e.g., "Cisco", "Juniper", "HP")
-    model               VARCHAR(100),                               -- Device model
-    firmware_version    VARCHAR(100),                               -- Firmware or OS version
-    last_updated_ts     TIMESTAMP(3)                                -- Timestamp of the last update to this device's info
+    device_id               VARCHAR(255) PRIMARY KEY NOT ENFORCED,      -- Unique identifier for the device
+    ip_address              VARCHAR(45) NOT NULL,                       -- IP address of the device (IPv4 or IPv6)
+    hostname                VARCHAR(255),                               -- Hostname of the device
+    device_location         VARCHAR(255),                               -- Physical location of the device
+    device_type             VARCHAR(100),                               -- Type of device (e.g., "router", "switch", "server")
+    vendor                  VARCHAR(100),                               -- Device vendor (e.g., "Cisco", "Juniper", "HP")
+    model                   VARCHAR(100),                               -- Device model
+    firmware_version        VARCHAR(100),                               -- Firmware or OS version
+    last_updated_ts         TIMESTAMP(3)                                -- Timestamp of the last update to this device's info
 ) WITH (
-    'connector'                         = 'postgresql-cdc',         -- Specifies the PostgreSQL CDC connector
-    'hostname'                          = 'your_postgres_host',     -- Replace with your PostgreSQL host
-    'port'                              = '5432',                   -- PostgreSQL default port
-    'username'                          = 'your_cdc_username',      -- PostgreSQL user with replication privileges
-    'password'                          = 'your_cdc_password',      -- Password for the CDC user
-    'database-name'                     = 'snmp_metadata',          -- The database containing the device info table
-    'schema-name'                       = 'public',                 -- The schema containing the device info table (e.g., 'public')
-    'table-name'                        = 'snmp_device_info',       -- The table containing device information
-    'replication-slot-name'             = 'flink_snmp_device_slot', -- Unique replication slot name
-    'scan.startup.mode'                 = 'initial',                -- 'initial' for a snapshot + streaming, 'latest-offset' for streaming only
-    'debezium.snapshot.mode'            = 'initial',                -- Debezium specific snapshot mode
-    'debezium.heartbeat.interval.ms'    = '60000'                   -- Optional: Send heartbeats every 60 seconds
+    'connector'                         = 'postgresql-cdc',             -- Specifies the PostgreSQL CDC connector
+    'hostname'                          = 'your_postgres_host',         -- Replace with your PostgreSQL host
+    'port'                              = '5432',                       -- PostgreSQL default port
+    'username'                          = 'your_cdc_username',          -- PostgreSQL user with replication privileges
+    'password'                          = 'your_cdc_password',          -- Password for the CDC user
+    'database-name'                     = 'snmp_metadata',              -- The database containing the device info table
+    'schema-name'                       = 'public',                     -- The schema containing the device info table (e.g., 'public')
+    'table-name'                        = 'snmp_device_info',           -- The table containing device information
+    'replication-slot-name'             = 'flink_snmp_device_slot',     -- Unique replication slot name
+    'scan.startup.mode'                 = 'initial',                    -- 'initial' for a snapshot + streaming, 'latest-offset' for streaming only
+    'debezium.snapshot.mode'            = 'initial',                    -- Debezium specific snapshot mode
+    'debezium.heartbeat.interval.ms'    = '60000'                       - Optional: Send heartbeats every 60 seconds
     -- You can add other Debezium properties as needed, e.g., 'debezium.decimal.handling.mode' = 'string'
 );
 
 -- device_location => BN:xxx/FN:xxx/NR:xxx/RN:xxx/UN:xxx
 -- BN => Building name
 -- FN => Floor Number
--- NR => Network Room Number
--- RN => Rack Number
--- UN => Top U Number
+-- NR => Network Room Number or NR => DC Room Number
+-- RCKN => Rack Number or RWN =>
+-- UN => Top U Number of device
+
+-- or
+
+-- device_location => BN:xxx/FN:xxx/DCRN:xxx/RN:xxx/RCKN:xxxx/UN:xxx
+-- BN => Building name
+-- FN => Floor Number
+-- DCRN => DC Room Number
+-- RN => Row Number
+-- RCKN => Rack Number
+-- UN => Top U Number of device
 
 
 -- Prerequisites on your PostgreSQL Server:

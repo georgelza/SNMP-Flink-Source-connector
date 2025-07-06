@@ -1,36 +1,46 @@
 -- MySQL CDC Example
 CREATE TABLE hive_catalog.snmp.snmp_device_info (
-    device_id           VARCHAR(255) PRIMARY KEY NOT ENFORCED,      -- Unique identifier for the device
-    ip_address          VARCHAR(45) NOT NULL,                       -- IP address of the device (IPv4 or IPv6)
-    hostname            VARCHAR(255),                               -- Hostname of the device
-    device_location     VARCHAR(255),                               -- Physical location of the device
-    device_type         VARCHAR(100),                               -- Type of device (e.g., "router", "switch", "server")
-    vendor              VARCHAR(100),                               -- Device vendor (e.g., "Cisco", "Juniper", "HP")
-    model               VARCHAR(100),                               -- Device model
-    firmware_version    VARCHAR(100),                               -- Firmware or OS version
-    last_updated_ts     TIMESTAMP(3)                                -- Timestamp of the last update to this device's info
+    device_id               VARCHAR(255) PRIMARY KEY NOT ENFORCED,      -- Unique identifier for the device
+    ip_address              VARCHAR(45) NOT NULL,                       -- IP address of the device (IPv4 or IPv6)
+    hostname                VARCHAR(255),                               -- Hostname of the device
+    device_location         VARCHAR(255),                               -- Physical location of the device
+    device_type             VARCHAR(100),                               -- Type of device (e.g., "router", "switch", "server")
+    vendor                  VARCHAR(100),                               -- Device vendor (e.g., "Cisco", "Juniper", "HP")
+    model                   VARCHAR(100),                               -- Device model
+    firmware_version        VARCHAR(100),                               -- Firmware or OS version
+    last_updated_ts         TIMESTAMP(3)                                -- Timestamp of the last update to this device's info
 ) WITH (
-    'connector'              = 'mysql-cdc',                         -- Specifies the MySQL CDC connector
-    'hostname'               = 'your_mysql_host',                   -- Replace with your MySQL host
-    'port'                   = '3306',                              -- MySQL port
-    'username'               = 'your_cdc_username',                 -- MySQL user with replication privileges
-    'password'               = 'your_cdc_password',                 -- Password for the CDC user
-    'database-name'          = 'snmp_metadata',                     -- The database containing the device info table
-    'table-name'             = 'snmp_device_info',                  -- The table containing device information
-    'server-id'              = '5400-5500',                         -- Unique server ID for the Debezium connector in MySQL
-    'scan.startup.mode'      = 'initial',                           -- 'initial' for a snapshot + streaming, 'latest-offset' for streaming only
-    'debezium.snapshot.mode' = 'initial',                           -- Debezium specific snapshot mode
-    'debezium.snapshot.locking.mode' = 'none'                       -- Avoids locking tables during snapshot for read-heavy tables
-    -- 'debezium.decimal.handling.mode' = 'string'                  -- Optional: configure how decimal types are handled
-    -- 'properties.include.schema.changes' = 'false'                -- Optional: Do not emit schema change events
+    'connector'              = 'mysql-cdc',                             -- Specifies the MySQL CDC connector
+    'hostname'               = 'your_mysql_host',                       -- Replace with your MySQL host
+    'port'                   = '3306',                                  -- MySQL port
+    'username'               = 'your_cdc_username',                     -- MySQL user with replication privileges
+    'password'               = 'your_cdc_password',                     -- Password for the CDC user
+    'database-name'          = 'snmp_metadata',                         -- The database containing the device info table
+    'table-name'             = 'snmp_device_info',                      -- The table containing device information
+    'server-id'              = '5400-5500',                             -- Unique server ID for the Debezium connector in MySQL
+    'scan.startup.mode'      = 'initial',                               -- 'initial' for a snapshot + streaming, 'latest-offset' for streaming only
+    'debezium.snapshot.mode' = 'initial',                               -- Debezium specific snapshot mode
+    'debezium.snapshot.locking.mode' = 'none'                           -- Avoids locking tables during snapshot for read-heavy tables
+    -- 'debezium.decimal.handling.mode' = 'string'                      -- Optional: configure how decimal types are handled
+    -- 'properties.include.schema.changes' = 'false'                    -- Optional: Do not emit schema change events
 );
 
 -- device_location => BN:xxx/FN:xxx/NR:xxx/RN:xxx/UN:xxx
 -- BN => Building name
 -- FN => Floor Number
--- NR => Network Room Number
--- RN => Rack Number
--- UN => Top U Number
+-- NR => Network Room Number or NR => DC Room Number
+-- RCKN => Rack Number or RWN =>
+-- UN => Top U Number of device
+
+-- or
+
+-- device_location => BN:xxx/FN:xxx/DCRN:xxx/RN:xxx/RCKN:xxxx/UN:xxx
+-- BN => Building name
+-- FN => Floor Number
+-- DCRN => DC Room Number
+-- RN => Row Number
+-- RCKN => Rack Number
+-- UN => Top U Number of device
 
 
 -- Prerequisites on your MyQL Server:

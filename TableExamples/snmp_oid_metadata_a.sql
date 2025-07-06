@@ -1,5 +1,5 @@
 --
-CREATE TABLE snmp_oid_metadata (
+CREATE TABLE hive.snmp.snmp_oid_metadata (
     oid_string          VARCHAR(255) PRIMARY KEY,           -- The numerical OID (e.g., ".1.3.6.1.2.1.1.1.0")
     oid_name            VARCHAR(255),                       -- The human-readable name (e.g., "sysDescr")
     description         VARCHAR(2000),                      -- The textual description from the MIB
@@ -8,7 +8,7 @@ CREATE TABLE snmp_oid_metadata (
     oid_type            VARCHAR(50),                        -- Optional: "scalar", "table", "notification", etc.
 ) WITH (
     'connector'             = 'redis',
-    'hostname'              = 'your_redis_host',
+    'hostname'              = 'redis',
     'port'                  = '6379',
     'database'              = '0',
     'data-type'             = 'JSON',                       -- Or 'STRING' if storing full JSON strings

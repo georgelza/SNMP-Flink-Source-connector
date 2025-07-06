@@ -26,6 +26,7 @@
 .DS_Store
 .idea/
 .vscode/
+snmp-mib-loader/__pycache__
 
 devlab0/data
 snmp-mib-loader/target
