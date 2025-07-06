@@ -6,8 +6,11 @@ The basic idea is to build a **Apache Flink SNMP source connector** that can scr
 
 The statement will define the "static" structure, combined with the various variables defining what where and how to poll.
 
-The main source connector is located under snmp-source, while the mib loader is located under snmp-bim-loader.
-mib-source is based on java where as the mib-loader is a small Python program.
+The **main source connector** is located under `snmp-source`, while the **MIB loader** is located under `snmp-mib-loader`.
+`snmp-mib-source` is based on java where as the `snmp-mib-loader` is a small Python program.
+
+
+NOTE: Full disclosure, this is a project to show whats possible, it's definitely not complete...
 
 
 This source connector currently allows the following scenarios.
@@ -70,13 +73,18 @@ snmpwalk -v1 -c passsword <Agent IP> 1.3.6.1.2.1
     As per Cisco => [SNMPv3](https://www.cisco.com/c/en/us/td/docs/ios-xml/ios/snmp/configuration/xe-3se/3850/snmp-xe-3se-3850-book/nm-snmp-snmpv3.pdf)
 
 
-2. Need to come up with solution how to handle inbound SNMP Traps.
+3. Need to come up with solution how to handle inbound SNMP Traps.
     
     Not sure... thinking some form of API end point.
 
     See: [SNMP-Traps](https://www.logicmonitor.com/blog/snmp-traps)
 
 
+4. Code Instrumentation...
+
+    A project like this does need code instrumentqtion, think Prometheus.
+
+    
 ### W.R.T. => The SNMP MIB Loader
 
 As if we did not have enough to do... All this data is awesome, but we need to make it usefull, and that means making the various oid values more user friendlu, sensible. Thats done by associating the oid values with nice english descriptions. This is done using [MIB](https://www.solarwinds.com/resources/it-glossary/mib) data. 
@@ -106,6 +114,12 @@ This **Package** will be located in the root `./snmp-mib-loader` directory. It j
 
 - [Lisa's Home Page: SNMP Simulator](https://www.rushworth.us/lisa/?p=11032)
  
+- [Public SNMP Agent Simulator](http://snmplabs.com/snmpsim/public-snmp-agent-simulator.html)
+
+- [Pysnmp](https://github.com/pysnmp)  & [PySNMP v7](https://docs.lextudio.com/snmp/) & [LexStudio GIT Repo](https://github.com/lextudio/mibs.pysnmp.com)
+
+  - The above (`PySNMP v7`) includes some good history w.r.t SNMP.
+
 
 ### By:
 
