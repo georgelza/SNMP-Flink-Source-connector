@@ -71,7 +71,7 @@ LOG_TAG             = 'snmp_mib_ingester'
 LOG_FILE            = f'{LOG_TAG}.log'
 CONSOLE_DEBUG_LEVEL = 1                                                 # INFO
 FILE_DEBUG_LEVEL    = 0                                                 # DEBUG
-CUSTOM_LOG_FORMAT   = f'{LOG_TAG}, %(asctime)s, %(message)s'            # Custom format: "{CUSTOM_LOG_FORMAT}, {time}, message"
+CUSTOM_LOG_FORMAT   = f'{LOG_TAG}, %(asctime)s, %(message)s'            # Custom format: "{LOG_TAG}, {time}, message"
 logger_instance     = logger(LOG_FILE, CONSOLE_DEBUG_LEVEL, FILE_DEBUG_LEVEL, CUSTOM_LOG_FORMAT)
 
 
@@ -104,6 +104,9 @@ except ImportError:
     logger_instance.warning("redis not found. Redis database option will not be available.")
 
 # end try
+
+from utils import *
+
 
 def parse_mib_files(mib_file_path=None, mib_directory_path=None, mib_dirs=None, logger_instance=None):
     """
