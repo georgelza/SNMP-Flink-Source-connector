@@ -41,6 +41,12 @@ All of the above is using **SNMPv1** and **SNMPv2c** protocol using a common **s
 [Apache Flink SNMP Source Connector](https://github.com/georgelza/SNMP-Flink-Source-connector.git)    
 
 
+**NOTE**: this Connector's output is to be joined with snmp oid based information extracted from mib files.
+I've written a python program to do that, it was originally part of this project but have decided to rather extract it into it's own GIT Repo:
+[SNMP OID Mib Parser](https://github.com/georgelza/SNMP-MIB-Parser.git)
+
+
+
 ### SNMPGET Example
 
 snmpget -v1 -c password 172.16.10.2 sysDescr.0
@@ -99,18 +105,22 @@ As per Paessler: OIDs stands for Object Identifiers. OIDs uniquely identify mana
 Vendors define private branches including managed objects for their own products.
 
 
-And here we are, back at the Rabbit Hole... So lets create an supporting package that can read a MIB file and insert it's relevant information into a designated Apache Flink table.
+And here we are, back at the Rabbit Hole... So lets create an utility that can read a MIB file and insert it's relevant information into a designated Apache Flink table.
 
-This **Package** will be located in the root `./snmp-mib-loader` directory. It just so happens that when you build the snmp-source connector package using the `make build` command that this jar file was also build. You will find it in the `./snmp-mib-loader/target` directory. 
+See earlier note, this utility has been moved into it's own GIT Repo.
 
 
 ### References
 
 - [SNMP Protocol](https://en.wikipedia.org/wiki/Simple_Network_Management_Protocol)
 
-- [SNMP by Techtarget](https://www.techtarget.com/searchnetworking/definition/SNMP)
+- [Structure of Management Information (SMI) Numbers (MIB Module Registrations)](https://www.iana.org/assignments/smi-numbers/smi-numbers.xhtml)
 
 - [Getting Started with SNMP](https://www.easysnmp.com/tutorial/getting-snmp-data/)
+
+- [SNMP by Techtarget](https://www.techtarget.com/searchnetworking/definition/SNMP)
+
+- [Good resource to download missing/dependency MIB files](https://mibbrowser.online/mibdb_search.php)
 
 - [Lisa's Home Page: SNMP Simulator](https://www.rushworth.us/lisa/?p=11032)
  

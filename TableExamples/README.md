@@ -39,13 +39,14 @@ for postgresql see the conf/snmp.sql script.
         - PostgreSQL
         - MySQL
 
-5. snmp_oid_metadata_*.sql
+5. snmp_oid_metadata_*.sql -> Note, see the master README.md, the snmp: mib_parser has been moved into it's own GIT Repo.
 
     - Table that will contain the output of the snmp-mib-loader package
       - We will show how to output to:
         - REDIS
         - PostgreSQL
         - MySQL
+
 
 6. snmp_trap_data.sql
    
