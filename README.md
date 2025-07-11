@@ -42,8 +42,7 @@ All of the above is using **SNMPv1** and **SNMPv2c** protocol using a common **s
 
 
 **NOTE**: this Connector's output is to be joined with snmp oid based information extracted from mib files.
-I've written a python program to do that, it was originally part of this project but have decided to rather extract it into it's own GIT Repo:
-[SNMP OID Mib Parser](https://github.com/georgelza/SNMP-MIB-Parser.git)
+I've written a python program to do that, it was originally part of this project but have decided to rather extract it into it's own GIT Repo: [SNMP OID Mib Parser](https://github.com/georgelza/SNMP-MIB-Parser.git)
 
 
 
